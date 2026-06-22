@@ -1,0 +1,59 @@
+# ERP SaaS — Open-Source Vietnamese ERP & Accounting
+
+A self-hosted, single-tenant ERP and accounting system designed for Vietnamese businesses. Covers multi-regime accounting (Circular 200/133/132/88), e-invoicing (Decree 123/2020), VAT, CIT, PIT, and social insurance, with a Vietnamese-first UI.
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE`](./LICENSE) for the full text.
+
+Any modifications deployed over a network must be released as open source under the same license.
+
+## Data Residency
+
+**Data residency is the deployer's responsibility (e.g. Decree 53/2022).**
+
+This software does not enforce any particular hosting jurisdiction. Operators deploying in Vietnam must ensure compliance with the Law on Cybersecurity (24/2018/QH14) and Decree 53/2022/ND-CP regarding localisation of data for Vietnamese users.
+
+## Self-Host Quickstart
+
+> Full deployment instructions are provided in Task 12 — see `docker-compose.yml` (coming soon).
+
+```bash
+# Placeholder — see Task 12 / docker compose
+docker compose up
+```
+
+## Monorepo Structure
+
+```
+apps/
+  api/        # NestJS backend (Task 7–9)
+  web/        # Next.js frontend (Task 11)
+packages/
+  domain/     # Money primitives, rule engine (Tasks 2–3)
+  db/         # Drizzle schema, migrations, RLS (Tasks 4–6)
+docs/
+  regulations/  # Vietnamese regulatory index
+  glossary.md   # VI↔EN accounting glossary
+  open-questions.md
+```
+
+## Development Prerequisites
+
+- Node.js >= 22 (see `.nvmrc`)
+- pnpm 11.3.0
+- Docker (for PostgreSQL + services)
+
+## Toolchain
+
+| Tool | Version |
+|------|---------|
+| TypeScript | ^5.6 |
+| Turbo | ^2.1 |
+| ESLint | ^8.57 |
+| Prettier | ^3.3 |
+| Vitest | ^2.1 |
+
+## Contributing
+
+See `CLAUDE.md` (Task 14) for AI-assisted development guidelines. All contributions must be compatible with AGPL-3.0.

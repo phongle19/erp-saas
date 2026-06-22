@@ -6,3 +6,5 @@ dist/
 *.local
 .turbo/
 coverage/
+*.tsbuildinfo
+playwright-report/
