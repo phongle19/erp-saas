@@ -118,6 +118,15 @@ importers:
         specifier: ^2.1.0
         version: 2.1.9(@types/node@26.0.0)
 
+  packages/config-regimes:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@26.0.0)
+
   packages/db:
     dependencies:
       drizzle-orm:
@@ -144,6 +153,15 @@ importers:
         version: 2.1.9(@types/node@26.0.0)
 
   packages/domain:
+    devDependencies:
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@26.0.0)
+
+  packages/i18n:
     devDependencies:
       typescript:
         specifier: ^5.6.0
