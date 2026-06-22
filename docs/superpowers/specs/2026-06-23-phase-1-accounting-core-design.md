@@ -13,6 +13,15 @@
 - **Chart of Accounts:** seed the **full official** Circular 133 and Circular 88 account lists.
 - **Currency:** **VND-only** for Phase 1 (functional currency = VND; multi-currency
   translation stays a later phase).
+- **Fiscal year: configurable** per company (fiscal-year start month, not assumed Jan).
+- **Periods: 12 regular + N special/adjustment periods.** Beyond the 12 regular monthly
+  periods, a company may have additional **special periods** for adjustments posted at/after
+  year-end: period 13 = year-end **closing** adjustments, period 14 = **audit** adjustments,
+  period 15 = **retrospective** adjustments, and further special periods as needed. Special
+  periods carry no calendar month; they post into the fiscal year for finalization and feed
+  the year-end statements.
+- **Entry numbering:** per-company, **sequential `entry_no` reset each fiscal year** (the
+  human-readable journal document number; the UUID stays the internal PK).
 
 ## Non-negotiable principles (carried from Phase 0 / CLAUDE.md)
 - Money is `bigint` minor units (`@erp/domain`); double-entry must balance (Σdebit = Σcredit),
@@ -26,12 +35,24 @@
 
 ## 1. Data model additions (all company-scoped, RLS FORCED)
 
-- **`accounting_periods`** — `id, company_id, fiscal_year, period_no (1–12 or 0 for annual),
-  start_date, end_date, status ('open'|'closed'|'locked'), closed_at, closed_by`.
+- **`companies`** gains `fiscal_year_start_month smallint NOT NULL DEFAULT 1` (1=Jan … 12=Dec).
+  A company's fiscal year FY{N} runs 12 months from that month; regular period 1 = the start
+  month. (Configurable fiscal year.)
+- **`accounting_periods`** — `id, company_id, fiscal_year, period_no, period_type
+  ('regular'|'special'), purpose (nullable: 'closing'|'audit'|'retrospective'|free text for
+  further special periods), name_vi, start_date (nullable for special), end_date (nullable for
+  special), status ('open'|'closed'|'locked'), closed_at, closed_by`.
   Unique `(company_id, fiscal_year, period_no)`.
-- **`journal_entries`** — `id, company_id, period_id, entry_no, entry_date, description,
-  status ('draft'|'posted'|'reversed'), reverses_entry_id (nullable), created_by, posted_at`.
-  Append-only once `posted`.
+  - **Regular** periods: `period_no` 1–12, mapped to the 12 calendar months of the fiscal year
+    (offset by `fiscal_year_start_month`), each with concrete `start_date`/`end_date`.
+  - **Special** periods: `period_no` 13, 14, 15, … with no calendar month; conventional
+    purposes — 13 closing, 14 audit, 15 retrospective, and more as needed. They belong to the
+    fiscal year (dated at the fiscal-year-end for GL/statement ordering) and are included in
+    year-end balances. The count is not fixed — a company can add further special periods.
+- **`journal_entries`** — `id, company_id, period_id, fiscal_year, entry_no, entry_date,
+  description, status ('draft'|'posted'|'reversed'), reverses_entry_id (nullable), created_by,
+  posted_at`. `entry_no` is **sequential per `(company_id, fiscal_year)`**, assigned at post
+  time. Append-only once `posted`. Unique `(company_id, fiscal_year, entry_no)`.
 - **`journal_lines`** — `id, entry_id, company_id (denormalized for RLS), account_id,
   debit_minor bigint, credit_minor bigint, ic_counterparty_company_id (nullable, reserved
   for Phase 2 eliminations), line_memo`. Exactly one of debit/credit is non-zero per line.
@@ -74,8 +95,16 @@
 
 ## 5. Accounting periods
 
+- **Fiscal-year generation:** an admin action creates a fiscal year for a company → the 12
+  regular monthly periods (dated from `fiscal_year_start_month`) and any requested special
+  periods (13 closing / 14 audit / 15 retrospective / further). Idempotent.
+- **Special periods** accept entries dated at the fiscal-year-end and are how year-end closing,
+  audit, and retrospective adjustments are booked without disturbing the monthly periods. They
+  roll into the same fiscal year's cumulative balances.
 - Open/close/lock operations (admin). `closed` blocks posting but allows reopen; `locked` is
   terminal (no reopen) — for finalized statutory periods. Posting/period checks in the engine.
+- Statements/TB run **through a chosen period** (cumulative): e.g. "through period 12" =
+  pre-adjustment year-end; "through period 15" = after closing/audit/retrospective adjustments.
 
 ## 6. Financial statements — Circular 133
 
@@ -127,7 +156,13 @@ Phase 1 delivers a correct single-company accounting core with viewable statemen
 - Circular 133/2016/TT-BTC — SME chart of accounts (Appendix 1) + financial statements (B01‑DNN, B02‑DNN).
 - Circular 88/2021/TT-BTC — household/individual-business accounts & books.
 
-## Open questions for the user
-1. **Fiscal year** convention for the demo/periods: calendar year (Jan–Dec) assumed — OK, or
-   support a configurable fiscal-year start now?
-2. **Entry numbering**: per-company sequential `entry_no` per fiscal year (assumed) — acceptable?
+## Resolved decisions (from user review)
+1. **Configurable fiscal year** per company (`fiscal_year_start_month`), not fixed to Jan.
+2. **12 regular + N special periods** (13 closing, 14 audit, 15 retrospective, and further as
+   needed) for year-end/adjustment postings; count is not capped.
+3. **Entry numbering**: per-company sequential `entry_no` reset each fiscal year (human-readable
+   journal document number; UUID remains the internal PK).
+
+Test coverage adds: fiscal-year generation with a non-January start; posting into a special
+period (13/14/15) and its inclusion in cumulative year-end TB/statements; `entry_no` resets
+across fiscal years and is unique per `(company, fiscal_year)`.
