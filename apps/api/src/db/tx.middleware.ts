@@ -39,11 +39,26 @@ export class TxMiddleware implements NestMiddleware {
         ctx,
         () =>
           new Promise<void>((resolve, reject) => {
-            const settle = () =>
-              res.statusCode >= 400 ? reject(new TxRollback(res.statusCode)) : resolve();
+            // 'finish' and 'close' can BOTH fire for one response; the once-guard
+            // ensures we commit-or-rollback exactly once and ignore the rest.
+            let settled = false;
+            const settle = (): void => {
+              if (settled) return;
+              settled = true;
+              if (res.statusCode >= 400) {
+                reject(new TxRollback(res.statusCode));
+              } else {
+                resolve();
+              }
+            };
+            const fail = (err: Error): void => {
+              if (settled) return;
+              settled = true;
+              reject(err);
+            };
             res.on('finish', settle);
             res.on('close', settle);
-            res.on('error', reject);
+            res.on('error', fail);
             next();
           }),
       );

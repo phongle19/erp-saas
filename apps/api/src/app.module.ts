@@ -8,6 +8,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { HealthController } from './health/health.controller.js';
 import { TxMiddleware } from './db/tx.middleware.js';
+import { AuthModule } from './auth/auth.module.js';
 
 /**
  * Tenant-tx wiring decision (Phase 0):
@@ -18,7 +19,7 @@ import { TxMiddleware } from './db/tx.middleware.js';
  * needed and intentionally omitted.
  */
 @Module({
-  imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }])],
+  imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]), AuthModule],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
