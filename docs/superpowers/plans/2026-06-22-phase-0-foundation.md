@@ -859,7 +859,7 @@ async function main() {
   // effective-dated tax rules (cite sources)
   await db.insert(schema.taxRules).values([
     { ruleType: 'vat_rate', value: '10', effectiveFrom: '2014-01-01', effectiveTo: null, sourceRegulation: 'Law on VAT' },
-    { ruleType: 'vat_rate_reduced', value: '8', effectiveFrom: '2025-01-01', effectiveTo: '2026-12-31', sourceRegulation: 'Resolution 204/2025/QH15' },
+    { ruleType: 'vat_rate_reduced', value: '8', effectiveFrom: '2025-01-01', effectiveTo: '2027-01-01', sourceRegulation: 'Resolution 204/2025/QH15' }, // effectiveTo is EXCLUSIVE: 8% applies THROUGH 2026-12-31
     { ruleType: 'input_vat_noncash_threshold', value: '5000000', effectiveFrom: '2025-07-01', effectiveTo: null, sourceRegulation: 'Law 48/2024/QH15' },
     { ruleType: 'household_tier_threshold_exempt', value: '200000000', effectiveFrom: '2026-01-01', effectiveTo: null, sourceRegulation: 'Resolution 198/2025/QH15' },
   ]);
