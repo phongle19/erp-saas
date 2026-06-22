@@ -50,3 +50,14 @@ Unresolved regulatory and technical decisions that must be confirmed before the 
    investigate the `trustHostHeader` option in `next.config` or ensure the `Host` header
    matches the expected value. Do not enable `trustHostHeader` blindly in production
    without understanding the SSRF implications.
+
+10. **VERIFY: Circular 133 & 88 charts of accounts and B01-DNN/B02-DNN statement templates** —
+    The seeded chart of accounts for Circular 133/2016/TT-BTC (`packages/config-regimes/src/coa/circular-133.ts`)
+    and Circular 88/2021/TT-BTC (`packages/config-regimes/src/coa/circular-88.ts`), and the
+    B01-DNN/B02-DNN financial statement line templates (`packages/config-regimes/src/statements/circular-133.ts`)
+    were authored from knowledge of the circulars but were **not verified line-by-line against the
+    official published circular text**. Before production use, a qualified accountant or compliance
+    reviewer must verify: (a) account codes and Vietnamese names against Circular 133/2016/TT-BTC
+    Phụ lục 1 and Circular 88/2021/TT-BTC; (b) completeness of the account list; (c) B01-DNN and
+    B02-DNN line codes, labels, and account prefix mappings against the official form templates in
+    Circular 133/2016/TT-BTC Phụ lục 2. Do not treat the seeded data as authoritative until verified.
