@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, date, bigint, unique, check } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, integer, smallint, date, bigint, unique, check } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { accountingRegime, householdTier, controlType } from './enums.js';
 import { currencies } from './currencies.js';
@@ -13,6 +13,7 @@ export const companies = pgTable('companies', {
   functionalCurrency: text('functional_currency').notNull().references(() => currencies.code),
   householdTier: householdTier('household_tier'),
   status: text('status').notNull().default('active'),
+  fiscalYearStartMonth: smallint('fiscal_year_start_month').notNull().default(1), // 1=Jan … 12=Dec
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

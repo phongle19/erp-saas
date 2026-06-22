@@ -6,3 +6,5 @@ export * from './groups.js';
 export * from './coa.js';
 export * from './rules.js';
 export * from './audit.js';
+export * from './periods.js';
+export * from './journals.js';
