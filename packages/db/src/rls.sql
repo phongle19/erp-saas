@@ -24,24 +24,28 @@ $$;
 -- companies: a company is visible/writable if admin, or its own id is granted
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE companies FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS companies_access ON companies;
 CREATE POLICY companies_access ON companies
   USING (app_is_admin() OR id = ANY(app_accessible_companies()))
   WITH CHECK (app_is_admin() OR id = ANY(app_accessible_companies()));
 
 ALTER TABLE chart_of_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chart_of_accounts FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS coa_access ON chart_of_accounts;
 CREATE POLICY coa_access ON chart_of_accounts
   USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
   WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
 
 ALTER TABLE group_memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_memberships FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS gm_access ON group_memberships;
 CREATE POLICY gm_access ON group_memberships
   USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
   WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
 
 ALTER TABLE ownership_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ownership_links FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS ol_access ON ownership_links;
 CREATE POLICY ol_access ON ownership_links
   USING (app_is_admin() OR parent_company_id = ANY(app_accessible_companies()) OR child_company_id = ANY(app_accessible_companies()))
   WITH CHECK (app_is_admin() OR parent_company_id = ANY(app_accessible_companies()) OR child_company_id = ANY(app_accessible_companies()));
@@ -49,4 +53,5 @@ CREATE POLICY ol_access ON ownership_links
 -- groups are owner-global (single tenant): any authenticated user may read; only admin may write.
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE groups FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS groups_read ON groups;
 CREATE POLICY groups_read ON groups USING (true) WITH CHECK (app_is_admin());
