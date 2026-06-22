@@ -31,6 +31,11 @@ docker compose exec api pnpm --filter @erp/db seed
 
 **Data residency is the deployer's responsibility (e.g. Vietnam's Decree 53/2022).**
 
+> **Before production:** change the default credentials. Set a strong `POSTGRES_PASSWORD`
+> and a matching `DATABASE_URL` password (the shipped defaults are `postgres`/`erp` for local
+> dev only), set `SESSION_COOKIE_SECURE=true` behind TLS, generate a real `FIELD_ENCRYPTION_KEY`
+> (`openssl rand -hex 32`), and use a strong admin bootstrap password (not `changeme123`).
+
 The `api` container connects to Postgres as a **non-superuser, `NOBYPASSRLS`** role
 (`erp`) that owns the database, so `FORCE ROW LEVEL SECURITY` is actually enforced.
 On startup the `api` container applies migrations + RLS policies, then serves on

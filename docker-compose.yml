@@ -34,6 +34,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # uses the DB-free liveness endpoint; node has global fetch (no curl in slim image)
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 20
     ports:
       - "3001:3001"
 
@@ -44,7 +52,10 @@ services:
     environment:
       API_URL: http://api:3001
     depends_on:
-      - api
+      # wait until the api has finished migrations and is serving, so the web
+      # container's first proxied request doesn't race a not-yet-ready backend
+      api:
+        condition: service_healthy
     ports:
       - "3000:3000"
 
