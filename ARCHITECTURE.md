@@ -144,16 +144,88 @@ Circular 202 consolidation (Phase 1+ engine).
 
 ---
 
-## Posting engine principle (forward-looking — Phase 1)
+## Accounting core (Phase 1)
 
-The single `PostingEngine` is the **only** path to the GL. No module, service, or UI
-may write journal entries directly. Journals are append-only; corrections are reversals.
-Double-entry is enforced at both layers:
-- App domain invariant: Σdebits = Σcredits per journal batch.
-- DB constraint/trigger: rejects an unbalanced batch atomically.
+### Posting engine
 
-Phase 0 establishes the audit trail and schema substrate; the engine is implemented in
-Phase 1 alongside the accounting vertical slice.
+`PostingEngine` (`apps/api/src/accounting/posting-engine.service.ts`) is the **sole
+write path to the GL**. No module, service, or UI may insert `journal_entries` or
+`journal_lines` directly. All GL mutations go through the engine.
+
+**Draft → posted lifecycle:**
+
+1. Insert `journal_entries` with `status = 'draft'`.
+2. Insert all `journal_lines` (DB check: each line has exactly one non-zero side;
+   amounts non-negative; companyId matches entry's companyId).
+3. `UPDATE journal_entries SET status = 'posted', posted_at = now()`.
+   A deferred DB trigger fires at COMMIT and rejects the transaction if Σdebit_minor ≠
+   Σcredit_minor for any entry in the batch.
+
+**Append-only / reversal:** posted entries are immutable. A DB trigger blocks any
+`UPDATE` or `DELETE` on posted `journal_entries`. Corrections must be reversals: the
+engine inserts a mirrored entry (all debits/credits swapped) and marks both entries
+`reversed`. This satisfies Luật Kế toán 88/2015/QH13, Art. 19 (chứng từ kế toán
+không được tẩy xóa).
+
+### DB-enforced double-entry + immutability
+
+Two deferred triggers live in `packages/db/src/rls.sql`:
+
+- **Balance trigger:** at the end of each transaction, for every `journal_entry` whose
+  `id` was modified in that transaction, checks `Σdebit_minor = Σcredit_minor`. Fires as
+  a deferred CONSTRAINT TRIGGER so the full batch (all lines) is present before the check
+  runs.
+- **Immutability trigger:** `BEFORE UPDATE OR DELETE ON journal_entries` — raises an
+  exception if `OLD.status = 'posted'` (the PostingEngine's own status-flip is the only
+  permitted UPDATE, from `'draft'` to `'posted'`).
+
+### Accounting periods
+
+`accounting_periods` table (`packages/db/src/schema/periods.ts`) with:
+- **Regular periods** (periodNo 1–12, periodType='regular'): one per calendar month for
+  the fiscal year. `startDate` / `endDate` set to the first and last day of the month.
+- **Special periods** (periodNo 13+, periodType='special'): null dates. Three predefined
+  purposes — `'closing'` (period 13, year-end adjustment), `'audit'` (period 14,
+  post-audit adjustments), `'retrospective'` (period 15, prior-period corrections).
+
+Fiscal year start month is configurable in the period generator; the seed uses
+January-start (Jan 2026 = period 1, Dec 2026 = period 12).
+
+### GL / Trial Balance / Statement derivations
+
+All three are **read-only aggregations** over `journal_lines`; no separate balance tables
+are maintained (no redundancy, no synchronisation bugs):
+
+- **General Ledger:** `SELECT account_id, SUM(debit_minor), SUM(credit_minor) FROM
+  journal_lines WHERE company_id = $1 AND period_id = $2 GROUP BY account_id`.
+  (`apps/api/src/accounting/gl.service.ts`)
+- **Trial Balance:** adds opening balance (sum of prior periods) and closing balance
+  columns. (`apps/api/src/accounting/trial-balance.service.ts`)
+- **Financial Statements (B01/B02-DNN):** `StatementsService`
+  (`apps/api/src/accounting/statements.service.ts`) maps each form line to a list of
+  account codes from the statement template (`packages/config-regimes/src/statements/
+  circular-133.ts`). Codes prefixed with `_neg` flip the sign (for contra-accounts and
+  deductions). Revenue/equity accounts have credit-normal nature; their net balance is
+  `credit - debit`. Asset/expense accounts are debit-normal: `debit - credit`.
+
+### `_neg` convention in statement templates
+
+```ts
+// Example from circular-133.ts:
+{ code: 'B02_10', label: 'Doanh thu thuần', accountCodes: ['511', '_neg:521'] }
+//                                                                 ^^^^^^^^^^^
+// 521 (Các khoản giảm trừ DT) is a contra-revenue; its debit balance reduces revenue.
+// _neg prefix tells the engine to negate 521's net before summing.
+```
+
+### Known limitation: 131/331 dual-nature accounts
+
+TK 131 (Phải thu khách hàng) and TK 331 (Phải trả người bán) are dual-nature: they
+can have either a debit or credit balance depending on business conditions (overpayment,
+advance). The current implementation maps them statically to `asset` and `liability`
+respectively. A customer advance (credit balance on 131) will appear as a negative asset
+on the Balance Sheet rather than being reclassified to liability. This is a known
+limitation tracked in `docs/open-questions.md`.
 
 ---
 

@@ -1,4 +1,4 @@
-import { type Money, money, sumLines } from './money.js';
+import { type Money, sumLines } from './money.js';
 
 export interface JournalLineInput {
   accountCode: string;
