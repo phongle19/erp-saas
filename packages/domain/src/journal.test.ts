@@ -33,6 +33,27 @@ describe('validateBalanced', () => {
     expect(err!.code).toBe('UNBALANCED');
   });
 
+  it('returns UNBALANCED for a 3+ line entry whose totals differ (each line individually valid)', () => {
+    const lines: JournalLineInput[] = [
+      line('1111', 70n, 0n),
+      line('1112', 30n, 0n),
+      line('3311', 0n, 90n), // 100 debit vs 90 credit
+    ];
+    const err = validateBalanced(lines, VND);
+    expect(err).not.toBeNull();
+    expect(err!.code).toBe('UNBALANCED');
+  });
+
+  it('returns CURRENCY_MISMATCH when a LATER line carries a different currency', () => {
+    const lines: JournalLineInput[] = [
+      line('1111', 100n, 0n), // valid VND
+      { accountCode: '3311', debit: money(0n, VND), credit: money(100n, USD) }, // USD on a later line
+    ];
+    const err = validateBalanced(lines, VND);
+    expect(err).not.toBeNull();
+    expect(err!.code).toBe('CURRENCY_MISMATCH');
+  });
+
   it('returns LINE_BOTH_SIDES when a line has both debit > 0 and credit > 0', () => {
     const lines: JournalLineInput[] = [
       { accountCode: 'BAD', debit: money(50n, VND), credit: money(50n, VND) },
