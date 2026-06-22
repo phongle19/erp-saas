@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://erp:erp@localhost:5432/erp_test
+      TEST_DATABASE_URL: postgres://erp:erp@localhost:5432/erp_test
+      FIELD_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Create NOBYPASSRLS app role + test database.
+      # The service starts as the postgres superuser; we create a separate
+      # NOSUPERUSER NOBYPASSRLS role so that FORCE ROW LEVEL SECURITY actually
+      # enforces — a superuser would bypass RLS and make isolation tests pass
+      # even when policies are broken.
+      - name: Create non-superuser app role and test database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -c "CREATE ROLE erp LOGIN PASSWORD 'erp' NOSUPERUSER NOCREATEDB NOBYPASSRLS;"
+          psql -h localhost -U postgres -c "CREATE DATABASE erp_test OWNER erp;"
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run DB migrations
+        run: pnpm --filter @erp/db migrate
+
+      - name: Test (unit + integration + access-isolation e2e)
+        run: pnpm test
+
+      # Option (b): web Playwright e2e is deferred — Next.js build and lint
+      # are already covered by the 'Build' and 'Lint' turbo steps above.
+      # To add browser e2e later, uncomment and adjust the step below:
+      #
+      # - name: Install Playwright browsers (Chromium only)
+      #   run: pnpm --filter @erp/web exec playwright install --with-deps chromium
+      #   continue-on-error: true
+      #
+      # - name: Web smoke tests (Playwright)
+      #   run: pnpm --filter @erp/web exec playwright test
+      #   continue-on-error: true

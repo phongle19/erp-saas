@@ -3,6 +3,10 @@ dist/
 .next/
 .env
 .env.*
+!.env.example
 *.local
 .turbo/
 coverage/
+*.tsbuildinfo
+playwright-report/
+.DS_Store
