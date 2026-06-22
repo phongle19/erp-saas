@@ -196,26 +196,35 @@ January-start (Jan 2026 = period 1, Dec 2026 = period 12).
 All three are **read-only aggregations** over `journal_lines`; no separate balance tables
 are maintained (no redundancy, no synchronisation bugs):
 
-- **General Ledger:** `SELECT account_id, SUM(debit_minor), SUM(credit_minor) FROM
-  journal_lines WHERE company_id = $1 AND period_id = $2 GROUP BY account_id`.
-  (`apps/api/src/accounting/gl.service.ts`)
-- **Trial Balance:** adds opening balance (sum of prior periods) and closing balance
-  columns. (`apps/api/src/accounting/trial-balance.service.ts`)
-- **Financial Statements (B01/B02-DNN):** `StatementsService`
-  (`apps/api/src/accounting/statements.service.ts`) maps each form line to a list of
-  account codes from the statement template (`packages/config-regimes/src/statements/
-  circular-133.ts`). Codes prefixed with `_neg` flip the sign (for contra-accounts and
-  deductions). Revenue/equity accounts have credit-normal nature; their net balance is
-  `credit - debit`. Asset/expense accounts are debit-normal: `debit - credit`.
+Both the General Ledger and Trial Balance live in **`apps/api/src/accounting/ledger.service.ts`**;
+financial statements in **`apps/api/src/accounting/statements.service.ts`**. All consume only
+entries with `status <> 'draft'` (so a reversed original and its reversal net to zero) and are
+**cumulative through a chosen period** (`periodNo <= through`), enabling pre-adjustment (through
+period 12) vs post-adjustment (through 13/14/15) views.
 
-### `_neg` convention in statement templates
+- **Trial Balance** (`ledger.service.trialBalance`): aggregates `SUM(debit_minor)/SUM(credit_minor)`
+  per account over the company's non-draft lines through the period; `balance = debit − credit`;
+  totals must satisfy Σdebit = Σcredit.
+- **General Ledger** (`ledger.service.generalLedger`): per-account movements ordered by
+  date/entry-no with a running balance (Phase 1 has no prior-year opening carryforward).
+- **Financial Statements (B01/B02-DNN):** `StatementsService` evaluates the statement template
+  (`packages/config-regimes/src/statements/circular-133.ts`) against the trial-balance account
+  balances. Leaf lines have `accounts: { prefixes, nature }` (sum of accounts whose code starts
+  with a prefix, taken on the line's `debit`/`credit` nature); subtotal lines have `subtotalOf`
+  (child line codes). Credit-nature lines present their natural balance as positive.
+
+### `_neg` sign convention in statement templates
+
+A child reference in a subtotal's `subtotalOf` array may carry a **`_neg` suffix**, meaning
+"subtract that child's value" (strip the suffix to find the line, then negate before summing).
+This is how contra-assets (accumulated depreciation 214x, provisions), treasury stock (419),
+and income-statement deductions/expenses reduce their subtotals.
 
 ```ts
-// Example from circular-133.ts:
-{ code: 'B02_10', label: 'Doanh thu thuần', accountCodes: ['511', '_neg:521'] }
-//                                                                 ^^^^^^^^^^^
-// 521 (Các khoản giảm trừ DT) is a contra-revenue; its debit balance reduces revenue.
-// _neg prefix tells the engine to negate 521's net before summing.
+// Real shape (circular-133.ts): leaf lines + a subtotal that subtracts a contra child.
+{ code: 'A.II.2b', label_vi: 'Hao mòn TSCĐ', level: 3, accounts: { prefixes: ['2141'], nature: 'credit' } }
+{ code: 'A.II.2',  label_vi: 'Tài sản cố định (giá trị còn lại)', level: 2,
+  subtotalOf: ['A.II.2a', 'A.II.2b_neg'] } // net book value = cost − accumulated depreciation
 ```
 
 ### Known limitation: 131/331 dual-nature accounts

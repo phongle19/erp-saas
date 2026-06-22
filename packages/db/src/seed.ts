@@ -2,6 +2,13 @@ import { sql as drizzleSql } from 'drizzle-orm';
 import { makeSql, makeDb, schema } from './client.js';
 import { getChartOfAccounts } from '@erp/config-regimes';
 
+/**
+ * Demo seed. Run ONLY on a fresh database (e.g. right after `migrate` on a new install).
+ * It is idempotent via a guard: if an Owner already exists the seed is SKIPPED (it will not
+ * refresh/append). Do NOT share a database between the seed and the test suite — the API
+ * integration tests truncate all tables, which would wipe seeded demo data. To regenerate the
+ * demo, start from an empty database.
+ */
 async function main() {
   const sqlClient = makeSql();
   const db = makeDb(sqlClient);
