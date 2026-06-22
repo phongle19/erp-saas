@@ -1,0 +1,8 @@
+import { defineRouting } from "next-intl/routing";
+
+export const routing = defineRouting({
+  locales: ["vi", "en"],
+  defaultLocale: "vi",
+  // Do not use browser Accept-Language; always default to Vietnamese
+  localeDetection: false,
+});

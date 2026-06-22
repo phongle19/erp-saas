@@ -6,3 +6,6 @@ allowBuilds:
   esbuild: true
   argon2: true
   '@swc/core': true
+  sharp: true
+  unrs-resolver: true
+  '@parcel/watcher': true
