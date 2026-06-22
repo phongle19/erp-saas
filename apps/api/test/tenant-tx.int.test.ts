@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { schema } from '@erp/db';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { makeSql } from '@erp/db';
 import { runInTenantTx } from '../src/db/tenant-tx.js';
 import { currentTx } from '../src/db/tx-context.js';
+import { truncateAll } from './helpers/make-app.js';
 
 // Gate on a real Postgres connection. test/setup-env.ts mirrors
 // TEST_DATABASE_URL -> DATABASE_URL *before* this module (and thus makeDb()) is
@@ -18,6 +20,13 @@ maybe('runInTenantTx — GUC propagation against real Postgres', () => {
   let companyBId: string;
 
   beforeAll(async () => {
+    // Reset to a known-empty state so this suite is repeatable run-to-run
+    // (previously it accumulated owner/company rows and "Test A" expected
+    // exactly 2 companies). truncateAll also re-inserts the VND currency.
+    const cleanupSql = makeSql();
+    await truncateAll(cleanupSql);
+    await cleanupSql.end();
+
     // Seed in an admin context so FORCE RLS WITH CHECK passes for companies.
     await runInTenantTx(
       { userId: null, isAdmin: true, accessibleCompanies: [] },

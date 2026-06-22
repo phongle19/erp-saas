@@ -4,11 +4,15 @@ import {
   type MiddlewareConsumer,
   type NestModule,
 } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { HealthController } from './health/health.controller.js';
 import { TxMiddleware } from './db/tx.middleware.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CompaniesModule } from './companies/companies.module.js';
+import { GroupsModule } from './groups/groups.module.js';
+import { AccessModule } from './access/access.module.js';
+import { AuditInterceptor } from './audit/audit.interceptor.js';
 
 /**
  * Tenant-tx wiring decision (Phase 0):
@@ -19,9 +23,18 @@ import { AuthModule } from './auth/auth.module.js';
  * needed and intentionally omitted.
  */
 @Module({
-  imports: [ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]), AuthModule],
+  imports: [
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    AuthModule,
+    CompaniesModule,
+    GroupsModule,
+    AccessModule,
+  ],
   controllers: [HealthController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

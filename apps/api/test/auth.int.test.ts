@@ -12,8 +12,9 @@ import type { INestApplication } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module.js';
 import { hashToken } from '../src/auth/session.util.js';
-import { makeDb, schema } from '@erp/db';
+import { makeDb, makeSql, schema } from '@erp/db';
 import { eq } from 'drizzle-orm';
+import { truncateAll } from './helpers/make-app.js';
 
 const DB_URL = process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL;
 const maybe = DB_URL ? describe : describe.skip;
@@ -36,6 +37,12 @@ maybe('Auth integration — bootstrap / login / session', () => {
     }
     // Disable secure cookies in test (no HTTPS).
     process.env.SESSION_COOKIE_SECURE = 'false';
+
+    // Reset to empty so bootstrap (test 1a) sees a virgin system regardless of
+    // what earlier test files committed (they run serially, sharing the DB).
+    const cleanupSql = makeSql();
+    await truncateAll(cleanupSql);
+    await cleanupSql.end();
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
