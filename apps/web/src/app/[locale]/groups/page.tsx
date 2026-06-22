@@ -1,4 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
 import GroupForm from "./GroupForm";
 
 type Props = {
@@ -14,10 +15,12 @@ type Group = {
 
 async function fetchGroups(): Promise<Group[]> {
   try {
-    const res = await fetch(
-      `${process.env.API_URL ?? "http://localhost:3001"}/groups`,
-      { credentials: "include", cache: "no-store" }
-    );
+    const cookie = (await headers()).get("cookie") ?? "";
+    const base = process.env.API_URL ?? "http://localhost:3001";
+    const res = await fetch(`${base}/groups`, {
+      headers: { cookie },
+      cache: "no-store",
+    });
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -36,6 +39,7 @@ export default async function GroupsPage({ params }: Props) {
 
   return (
     <div>
+      <h1>{t("list")}</h1>
       {managementGroups.length > 0 && (
         <section style={{ marginBottom: "2rem" }}>
           <h2>{t("portfolio")}</h2>

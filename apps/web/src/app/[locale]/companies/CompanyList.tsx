@@ -13,6 +13,7 @@ const REGIMES = [
 
 export default function CompanyList() {
   const t = useTranslations("companies");
+  const tCommon = useTranslations("common");
   const [name, setName] = useState("");
   const [regime, setRegime] = useState("TT200");
   const [functionalCurrency] = useState("VND");
@@ -61,7 +62,7 @@ export default function CompanyList() {
         </select>
       </label>
       {error && <p style={{ color: "red", margin: 0 }}>{error}</p>}
-      {success && <p style={{ color: "green", margin: 0 }}>OK</p>}
+      {success && <p style={{ color: "green", margin: 0 }}>{tCommon("saved")}</p>}
       <button type="submit" style={{ padding: "0.5rem", cursor: "pointer" }}>
         {t("create")}
       </button>

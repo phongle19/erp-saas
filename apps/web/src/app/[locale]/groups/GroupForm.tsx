@@ -11,6 +11,7 @@ const GROUP_TYPES = [
 
 export default function GroupForm() {
   const t = useTranslations("groups");
+  const tCommon = useTranslations("common");
   const [name, setName] = useState("");
   const [type, setType] = useState("STATUTORY");
   const [reportingCurrency] = useState("VND");
@@ -49,7 +50,7 @@ export default function GroupForm() {
         </select>
       </label>
       <label>
-        — {/* name label from create key */}
+        {t("name")}
         <input
           type="text"
           value={name}
@@ -60,7 +61,7 @@ export default function GroupForm() {
         />
       </label>
       {error && <p style={{ color: "red", margin: 0 }}>{error}</p>}
-      {success && <p style={{ color: "green", margin: 0 }}>OK</p>}
+      {success && <p style={{ color: "green", margin: 0 }}>{tCommon("saved")}</p>}
       <button type="submit" style={{ padding: "0.5rem", cursor: "pointer" }}>
         {t("create")}
       </button>

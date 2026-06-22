@@ -1,4 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
 import CompanyList from "./CompanyList";
 
 type Props = {
@@ -14,10 +15,12 @@ type Company = {
 
 async function fetchCompanies(): Promise<Company[]> {
   try {
-    const res = await fetch(
-      `${process.env.API_URL ?? "http://localhost:3001"}/companies`,
-      { credentials: "include", cache: "no-store" }
-    );
+    const cookie = (await headers()).get("cookie") ?? "";
+    const base = process.env.API_URL ?? "http://localhost:3001";
+    const res = await fetch(`${base}/companies`, {
+      headers: { cookie },
+      cache: "no-store",
+    });
     if (!res.ok) return [];
     return res.json();
   } catch {
