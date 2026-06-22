@@ -27,7 +27,14 @@ describe('findEffectiveRule', () => {
     expect(findEffectiveRule(rules, 'vat_rate_reduced', '2026-12-31')?.value).toBe('8');
     expect(findEffectiveRule(rules, 'vat_rate_reduced', '2027-01-01')).toBeUndefined();
   });
+  it('treats effectiveFrom as an inclusive lower bound', () => {
+    expect(findEffectiveRule(rules, 'vat_rate', '2014-01-01')?.value).toBe('10');
+  });
   it('returns undefined when no rule matches', () => {
     expect(findEffectiveRule(rules, 'vat_rate', '2000-01-01')).toBeUndefined();
+  });
+  it('rejects a malformed (non ISO YYYY-MM-DD) date instead of guessing', () => {
+    expect(() => findEffectiveRule(rules, 'vat_rate', '2025-7-1')).toThrow(/YYYY-MM-DD/);
+    expect(() => findEffectiveRule(rules, 'vat_rate', '01/07/2025')).toThrow(/YYYY-MM-DD/);
   });
 });
