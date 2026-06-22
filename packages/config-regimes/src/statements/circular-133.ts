@@ -44,18 +44,18 @@ const b01: StatementTemplate = {
     { code: 'A.I.2a', label_vi: '  - Chứng khoán kinh doanh',                               level: 3, accounts: { prefixes: ['121'], nature: 'debit' } },
     { code: 'A.I.2b', label_vi: '  - Đầu tư nắm giữ đến ngày đáo hạn',                     level: 3, accounts: { prefixes: ['128'], nature: 'debit' } },
 
-    { code: 'A.I.3',  label_vi: '3. Các khoản phải thu ngắn hạn',                           level: 2, subtotalOf: ['A.I.3a','A.I.3b','A.I.3c','A.I.3d'] },
+    { code: 'A.I.3',  label_vi: '3. Các khoản phải thu ngắn hạn',                           level: 2, subtotalOf: ['A.I.3a','A.I.3b','A.I.3c','A.I.3d_neg'] },
     { code: 'A.I.3a', label_vi: '  - Phải thu của khách hàng',                              level: 3, accounts: { prefixes: ['131'], nature: 'debit' } },
     { code: 'A.I.3b', label_vi: '  - Trả trước cho người bán ngắn hạn',                    level: 3, accounts: { prefixes: ['331'], nature: 'debit' } }, // debit balance of 331 = prepayment
     { code: 'A.I.3c', label_vi: '  - Phải thu khác',                                        level: 3, accounts: { prefixes: ['138'], nature: 'debit' } },
     { code: 'A.I.3d', label_vi: '  - Dự phòng phải thu khó đòi (*)',                       level: 3, accounts: { prefixes: ['139'], nature: 'credit' } }, // contra: credit balance reduces receivable
 
-    { code: 'A.I.4',  label_vi: '4. Hàng tồn kho',                                          level: 2, subtotalOf: ['A.I.4a','A.I.4b'] },
+    { code: 'A.I.4',  label_vi: '4. Hàng tồn kho',                                          level: 2, subtotalOf: ['A.I.4a','A.I.4b_neg'] },
     { code: 'A.I.4a', label_vi: '  - Hàng tồn kho',                                        level: 3, accounts: { prefixes: ['151','152','153','154','155','156','157','158'], nature: 'debit' } },
     { code: 'A.I.4b', label_vi: '  - Dự phòng giảm giá hàng tồn kho (*)',                 level: 3, accounts: { prefixes: ['2294'], nature: 'credit' } },
 
     { code: 'A.I.5',  label_vi: '5. Tài sản ngắn hạn khác',                                level: 2, subtotalOf: ['A.I.5a','A.I.5b'] },
-    { code: 'A.I.5a', label_vi: '  - Chi phí trả trước ngắn hạn',                          level: 3, accounts: { prefixes: ['242'], nature: 'debit' } },
+    { code: 'A.I.5a', label_vi: '  - Chi phí trả trước ngắn hạn',                          level: 3, accounts: { prefixes: ['2421'], nature: 'debit' } },
     { code: 'A.I.5b', label_vi: '  - Thuế GTGT được khấu trừ',                             level: 3, accounts: { prefixes: ['133'], nature: 'debit' } },
 
     { code: 'A.I.6',  label_vi: '6. Tạm ứng',                                               level: 2, accounts: { prefixes: ['141'], nature: 'debit' } },
@@ -65,7 +65,7 @@ const b01: StatementTemplate = {
 
     { code: 'A.II.1', label_vi: '1. Các khoản phải thu dài hạn',                            level: 2, accounts: { prefixes: ['136'], nature: 'debit' } },
 
-    { code: 'A.II.2', label_vi: '2. Tài sản cố định',                                       level: 2, subtotalOf: ['A.II.2a','A.II.2b','A.II.2c','A.II.2d','A.II.2e','A.II.2f'] },
+    { code: 'A.II.2', label_vi: '2. Tài sản cố định',                                       level: 2, subtotalOf: ['A.II.2a','A.II.2b_neg','A.II.2c','A.II.2d_neg','A.II.2e','A.II.2f_neg'] },
     { code: 'A.II.2a',label_vi: '  - Nguyên giá TSCĐ hữu hình',                            level: 3, accounts: { prefixes: ['211'], nature: 'debit' } },
     { code: 'A.II.2b',label_vi: '  - Hao mòn TSCĐ hữu hình (*)',                           level: 3, accounts: { prefixes: ['2141'], nature: 'credit' } },
     { code: 'A.II.2c',label_vi: '  - Nguyên giá TSCĐ thuê tài chính',                      level: 3, accounts: { prefixes: ['212'], nature: 'debit' } },
@@ -75,12 +75,12 @@ const b01: StatementTemplate = {
 
     { code: 'A.II.3', label_vi: '3. Bất động sản đầu tư',                                   level: 2, accounts: { prefixes: ['217'], nature: 'debit' } },
 
-    { code: 'A.II.4', label_vi: '4. Đầu tư tài chính dài hạn',                              level: 2, subtotalOf: ['A.II.4a','A.II.4b'] },
+    { code: 'A.II.4', label_vi: '4. Đầu tư tài chính dài hạn',                              level: 2, subtotalOf: ['A.II.4a','A.II.4b_neg'] },
     { code: 'A.II.4a',label_vi: '  - Đầu tư góp vốn vào đơn vị khác',                     level: 3, accounts: { prefixes: ['228'], nature: 'debit' } },
     { code: 'A.II.4b',label_vi: '  - Dự phòng tổn thất đầu tư dài hạn (*)',               level: 3, accounts: { prefixes: ['2291','2292'], nature: 'credit' } },
 
     { code: 'A.II.5', label_vi: '5. Tài sản dài hạn khác',                                  level: 2, subtotalOf: ['A.II.5a','A.II.5b','A.II.5c'] },
-    { code: 'A.II.5a',label_vi: '  - Chi phí trả trước dài hạn',                           level: 3, accounts: { prefixes: ['242'], nature: 'debit' } },
+    { code: 'A.II.5a',label_vi: '  - Chi phí trả trước dài hạn',                           level: 3, accounts: { prefixes: ['2422'], nature: 'debit' } },
     { code: 'A.II.5b',label_vi: '  - Xây dựng cơ bản dở dang',                             level: 3, accounts: { prefixes: ['241'], nature: 'debit' } },
     { code: 'A.II.5c',label_vi: '  - Tài sản thuế thu nhập hoãn lại',                      level: 3, accounts: { prefixes: ['243'], nature: 'debit' } },
 
@@ -108,7 +108,7 @@ const b01: StatementTemplate = {
     { code: 'B.I.6',  label_vi: '6. Vay và nợ thuê tài chính',                              level: 2, accounts: { prefixes: ['341'], nature: 'credit' } },
 
     // ── II. Vốn chủ sở hữu ──
-    { code: 'B.II',   label_vi: 'II. Vốn chủ sở hữu',                                      level: 1, subtotalOf: ['B.II.1','B.II.2','B.II.3','B.II.4','B.II.5'] },
+    { code: 'B.II',   label_vi: 'II. Vốn chủ sở hữu',                                      level: 1, subtotalOf: ['B.II.1','B.II.2_neg','B.II.3','B.II.4','B.II.5'] },
 
     { code: 'B.II.1', label_vi: '1. Vốn đầu tư của chủ sở hữu',                            level: 2, accounts: { prefixes: ['411'], nature: 'credit' } },
 
@@ -154,11 +154,7 @@ const b02: StatementTemplate = {
       level: 1,
       subtotalOf: ['01', '02_neg'],
     },
-    // helper line: negate 02 so subtotal works correctly (02 is debit; subtract from 01)
-    // Implementation note: the rendering engine must negate 'debit' lines when computing subtotals
-    // of revenue sections; or the engine can treat 02 as already negative.
-    // We express it with a direct formula: 10 = 01 - 02.
-    // For simplicity the subtotalOf mechanism here expects the engine to handle sign conventions.
+    // Sign convention: a child code ending in '_neg' in subtotalOf means multiply that line's value by -1 before summing.
 
     // ── 11. Giá vốn hàng bán ──
     {

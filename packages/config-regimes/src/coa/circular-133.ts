@@ -127,6 +127,8 @@ export const circular133Accounts: AccountSeed[] = [
   { code: '241',  name: 'Xây dựng cơ bản dở dang',                               type: 'asset' },
 
   { code: '242',  name: 'Chi phí trả trước dài hạn',                             type: 'asset' },
+  { code: '2421', name: 'Chi phí trả trước ngắn hạn',                            type: 'asset', parentCode: '242' },
+  { code: '2422', name: 'Chi phí trả trước dài hạn',                             type: 'asset', parentCode: '242' },
 
   { code: '243',  name: 'Tài sản thuế thu nhập hoãn lại',                       type: 'asset' },
 
