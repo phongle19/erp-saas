@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, unique } from 'drizzle-orm/pg-core';
-import { accountType } from './enums';
-import { companies } from './companies';
-import { groups } from './groups';
+import { accountType } from './enums.js';
+import { companies } from './companies.js';
+import { groups } from './groups.js';
 
 export const chartOfAccounts = pgTable(
   'chart_of_accounts',

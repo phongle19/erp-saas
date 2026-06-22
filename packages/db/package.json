@@ -14,7 +14,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "generate": "drizzle-kit generate",
+    "generate": "node --import tsx ./node_modules/drizzle-kit/bin.cjs generate",
     "migrate": "tsx src/migrate.ts",
     "seed": "tsx src/seed.ts",
     "test": "vitest run --passWithNoTests"

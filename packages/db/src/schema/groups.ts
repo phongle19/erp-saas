@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, timestamp, integer, unique } from 'drizzle-orm/pg-core';
-import { groupType } from './enums';
-import { companies } from './companies';
-import { currencies } from './currencies';
+import { groupType } from './enums.js';
+import { companies } from './companies.js';
+import { currencies } from './currencies.js';
 
 export const groups = pgTable('groups', {
   id: uuid('id').primaryKey().defaultRandom(),

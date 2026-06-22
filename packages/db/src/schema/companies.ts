@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, timestamp, integer, date, bigint } from 'drizzle-orm/pg-core';
-import { accountingRegime, householdTier, controlType } from './enums';
-import { currencies } from './currencies';
+import { accountingRegime, householdTier, controlType } from './enums.js';
+import { currencies } from './currencies.js';
 
 export const companies = pgTable('companies', {
   id: uuid('id').primaryKey().defaultRandom(),
