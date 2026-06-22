@@ -90,11 +90,14 @@ maybe('CoA provisioning + fiscal-year/period generation', () => {
   });
 
   it('provisioning again is idempotent (count unchanged, inserted=0)', async () => {
-    const countBefore = await app.db
-      .select()
-      .from(schema.chartOfAccounts)
-      .where(eq(schema.chartOfAccounts.companyId, smeId))
-      .then((rows) => rows.length);
+    // Count via the API (admin cookie => real RLS-scoped rows), not a bare app.db
+    // query which would return 0 under FORCE RLS with no GUC and make this vacuous.
+    const accountsCount = async () =>
+      (await request(app.getHttpServer()).get(`/companies/${smeId}/accounts`).set('Cookie', adminCookie))
+        .body.length as number;
+
+    const countBefore = await accountsCount();
+    expect(countBefore).toBeGreaterThan(0); // already provisioned earlier in this suite
 
     const res = await request(app.getHttpServer())
       .post(`/companies/${smeId}/coa/provision`)
@@ -103,12 +106,7 @@ maybe('CoA provisioning + fiscal-year/period generation', () => {
     expect(res.status).toBe(200);
     expect(res.body.inserted).toBe(0);
 
-    const countAfter = await app.db
-      .select()
-      .from(schema.chartOfAccounts)
-      .where(eq(schema.chartOfAccounts.companyId, smeId))
-      .then((rows) => rows.length);
-
+    const countAfter = await accountsCount();
     expect(countAfter).toBe(countBefore);
   });
 

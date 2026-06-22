@@ -10,7 +10,9 @@ export type Account = typeof schema.chartOfAccounts.$inferSelect;
 export class CoaService {
   /**
    * Provision the chart of accounts for a company from its regime config.
-   * Idempotent: codes already present for the company are skipped.
+   * Idempotent and race-safe: relies on the (company_id, code) unique constraint
+   * with ON CONFLICT DO NOTHING, so concurrent provisions can't duplicate or 500.
+   * `inserted` reflects the rows actually written this call (0 when already provisioned).
    *
    * Note: AccountSeed.parentCode is intentionally not persisted in Phase 1.
    * chart_of_accounts has no parent column — the account code prefix encodes
@@ -32,28 +34,23 @@ export class CoaService {
     const seeds = getChartOfAccounts(regime);
     if (seeds.length === 0) return { inserted: 0 };
 
-    // Find codes already present for this company (idempotency).
-    const existingRows = await db
-      .select({ code: schema.chartOfAccounts.code })
-      .from(schema.chartOfAccounts)
-      .where(eq(schema.chartOfAccounts.companyId, companyId));
+    const values = seeds.map((s: AccountSeed) => ({
+      companyId,
+      code: s.code,
+      name: s.name,
+      // parentCode is intentionally not persisted in Phase 1 (no parent column).
+      type: s.type as typeof schema.chartOfAccounts.$inferInsert['type'],
+    }));
 
-    const existingCodes = new Set(existingRows.map((r) => r.code));
+    const inserted = await db
+      .insert(schema.chartOfAccounts)
+      .values(values)
+      .onConflictDoNothing({
+        target: [schema.chartOfAccounts.companyId, schema.chartOfAccounts.code],
+      })
+      .returning({ id: schema.chartOfAccounts.id });
 
-    const toInsert = seeds
-      .filter((s: AccountSeed) => !existingCodes.has(s.code))
-      .map((s: AccountSeed) => ({
-        companyId,
-        code: s.code,
-        name: s.name,
-        // parentCode is intentionally not persisted in Phase 1 (no parent column).
-        type: s.type as typeof schema.chartOfAccounts.$inferInsert['type'],
-      }));
-
-    if (toInsert.length === 0) return { inserted: 0 };
-
-    await db.insert(schema.chartOfAccounts).values(toInsert);
-    return { inserted: toInsert.length };
+    return { inserted: inserted.length };
   }
 
   /** RLS-scoped list of all accounts for a company, ordered by code. */
