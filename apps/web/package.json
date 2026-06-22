@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@erp/config-regimes": "workspace:*",
     "@erp/i18n": "workspace:*",
     "next": "16.2.9",
     "next-intl": "^4.13.0",

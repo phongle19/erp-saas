@@ -3,19 +3,18 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { listRegimes, getRegimeConfig } from "@erp/config-regimes";
 
-const REGIMES = [
-  { value: "TT200", label: "TT200" },
-  { value: "TT133", label: "TT133" },
-  { value: "TT75", label: "TT75" },
-  { value: "IFRS", label: "IFRS" },
-];
+const REGIMES = listRegimes().map((r) => ({
+  value: r,
+  label: getRegimeConfig(r).label,
+}));
 
 export default function CompanyList() {
   const t = useTranslations("companies");
   const tCommon = useTranslations("common");
   const [name, setName] = useState("");
-  const [regime, setRegime] = useState("TT200");
+  const [regime, setRegime] = useState<string>(REGIMES[0]?.value ?? "circular_133");
   const [functionalCurrency] = useState("VND");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);

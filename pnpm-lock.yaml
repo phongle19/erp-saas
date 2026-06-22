@@ -32,6 +32,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@erp/config-regimes':
+        specifier: workspace:*
+        version: link:../../packages/config-regimes
       '@erp/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -120,6 +123,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@erp/config-regimes':
+        specifier: workspace:*
+        version: link:../../packages/config-regimes
       '@erp/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
