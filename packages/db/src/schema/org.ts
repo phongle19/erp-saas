@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, timestamp, boolean, unique } from 'drizzle-orm/pg-core';
+import { companies } from './companies.js';
 
 export const owner = pgTable('owner', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -22,9 +23,8 @@ export const companyAccess = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    // No FK reference to companies here to avoid circular import with companies.ts.
-    // The relationship is enforced at the application layer and will be covered by RLS in Task 5.
-    companyId: uuid('company_id').notNull(),
+    // FK is safe despite the org<->companies cycle because .references() is a lazy thunk
+    companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

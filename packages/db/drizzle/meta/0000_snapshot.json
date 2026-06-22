@@ -1,5 +1,5 @@
 {
-  "id": "d8f4def6-0acf-46f0-945d-df95a78ab8ba",
+  "id": "e7f635eb-9307-4377-ba9a-41b85a216ac2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -49,6 +49,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "company_access_company_id_companies_id_fk": {
+          "name": "company_access_company_id_companies_id_fk",
+          "tableFrom": "company_access",
+          "tableTo": "companies",
+          "columnsFrom": [
+            "company_id"
           ],
           "columnsTo": [
             "id"
@@ -272,6 +285,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -321,6 +340,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "companies_owner_id_owner_id_fk": {
+          "name": "companies_owner_id_owner_id_fk",
+          "tableFrom": "companies",
+          "tableTo": "owner",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "companies_functional_currency_currencies_code_fk": {
           "name": "companies_functional_currency_currencies_code_fk",
           "tableFrom": "companies",
@@ -420,9 +452,23 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "ownership_link_parent_child_uq": {
+          "name": "ownership_link_parent_child_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "parent_company_id",
+            "child_company_id"
+          ]
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "ownership_pct_bp_range": {
+          "name": "ownership_pct_bp_range",
+          "value": "\"ownership_links\".\"ownership_pct\" BETWEEN 0 AND 10000"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.group_memberships": {
@@ -497,7 +543,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "weight_bp_range": {
+          "name": "weight_bp_range",
+          "value": "\"group_memberships\".\"weight_bp\" BETWEEN 0 AND 10000"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.groups": {
@@ -510,6 +561,12 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         },
         "name": {
           "name": "name",
@@ -540,6 +597,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "groups_owner_id_owner_id_fk": {
+          "name": "groups_owner_id_owner_id_fk",
+          "tableFrom": "groups",
+          "tableTo": "owner",
+          "columnsFrom": [
+            "owner_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "groups_reporting_currency_currencies_code_fk": {
           "name": "groups_reporting_currency_currencies_code_fk",
           "tableFrom": "groups",
@@ -683,12 +753,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "coa_mapping_uq": {
-          "name": "coa_mapping_uq",
+        "coa_mapping_company_account_uq": {
+          "name": "coa_mapping_company_account_uq",
           "nullsNotDistinct": false,
           "columns": [
-            "company_account_id",
-            "group_account_id"
+            "company_account_id"
           ]
         }
       },

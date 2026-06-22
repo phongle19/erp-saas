@@ -34,5 +34,6 @@ export const coaMappings = pgTable(
     companyAccountId: uuid('company_account_id').notNull().references(() => chartOfAccounts.id, { onDelete: 'cascade' }),
     groupAccountId: uuid('group_account_id').notNull().references(() => groupChartOfAccounts.id, { onDelete: 'cascade' }),
   },
-  (t) => ({ uq: unique('coa_mapping_uq').on(t.companyAccountId, t.groupAccountId) }),
+  // each company (local) account maps to exactly one group account; many local accounts may share a group account
+  (t) => ({ uq: unique('coa_mapping_company_account_uq').on(t.companyAccountId) }),
 );

@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS "currencies" (
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "companies" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"owner_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"mst" text,
 	"regime" "accounting_regime" NOT NULL,
@@ -61,7 +62,9 @@ CREATE TABLE IF NOT EXISTS "ownership_links" (
 	"ownership_pct" integer NOT NULL,
 	"control_type" "control_type" NOT NULL,
 	"acquisition_date" date,
-	"goodwill_minor" bigint
+	"goodwill_minor" bigint,
+	CONSTRAINT "ownership_link_parent_child_uq" UNIQUE("parent_company_id","child_company_id"),
+	CONSTRAINT "ownership_pct_bp_range" CHECK ("ownership_links"."ownership_pct" BETWEEN 0 AND 10000)
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "group_memberships" (
@@ -69,11 +72,13 @@ CREATE TABLE IF NOT EXISTS "group_memberships" (
 	"group_id" uuid NOT NULL,
 	"company_id" uuid NOT NULL,
 	"weight_bp" integer DEFAULT 10000 NOT NULL,
-	CONSTRAINT "group_membership_uq" UNIQUE("group_id","company_id")
+	CONSTRAINT "group_membership_uq" UNIQUE("group_id","company_id"),
+	CONSTRAINT "weight_bp_range" CHECK ("group_memberships"."weight_bp" BETWEEN 0 AND 10000)
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "groups" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"owner_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"type" "group_type" NOT NULL,
 	"reporting_currency" text NOT NULL,
@@ -93,7 +98,7 @@ CREATE TABLE IF NOT EXISTS "coa_mappings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_account_id" uuid NOT NULL,
 	"group_account_id" uuid NOT NULL,
-	CONSTRAINT "coa_mapping_uq" UNIQUE("company_account_id","group_account_id")
+	CONSTRAINT "coa_mapping_company_account_uq" UNIQUE("company_account_id")
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "group_chart_of_accounts" (
@@ -133,7 +138,19 @@ EXCEPTION
 END $$;
 --> statement-breakpoint
 DO $$ BEGIN
+ ALTER TABLE "company_access" ADD CONSTRAINT "company_access_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
  ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "companies" ADD CONSTRAINT "companies_owner_id_owner_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."owner"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -164,6 +181,12 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "group_memberships" ADD CONSTRAINT "group_memberships_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "groups" ADD CONSTRAINT "groups_owner_id_owner_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."owner"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
