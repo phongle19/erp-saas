@@ -34,6 +34,7 @@ export default async function ReportsPage({ params, searchParams }: Props) {
   const { fiscalYear, through } = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("reports");
+  const tCommon = await getTranslations("common");
 
   const currentYear = new Date().getFullYear();
   const fy = fiscalYear ?? String(currentYear);
@@ -73,7 +74,7 @@ export default async function ReportsPage({ params, searchParams }: Props) {
           </select>
         </label>
         <button type="submit" style={{ padding: "0.4rem 1rem", cursor: "pointer" }}>
-          OK
+          {tCommon("ok")}
         </button>
       </form>
 

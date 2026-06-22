@@ -2,7 +2,7 @@ export default {
   app: { title: 'ERP Việt' },
   nav: { companies: 'Công ty', groups: 'Tập đoàn / Hợp nhất', reports: 'Báo cáo' },
   auth: { login: 'Đăng nhập', email: 'Email', password: 'Mật khẩu', logout: 'Đăng xuất' },
-  common: { saved: 'Đã lưu' },
+  common: { saved: 'Đã lưu', ok: 'OK' },
   companies: { create: 'Tạo công ty', regime: 'Chế độ kế toán', name: 'Tên', list: 'Danh sách công ty' },
   groups: { create: 'Tạo nhóm', type: 'Loại', portfolio: 'Danh mục tổng hợp', name: 'Tên nhóm', list: 'Danh sách nhóm' },
   reports: {

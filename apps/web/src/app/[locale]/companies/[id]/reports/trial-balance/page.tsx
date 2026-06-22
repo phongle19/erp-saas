@@ -79,7 +79,7 @@ export default async function TrialBalancePage({ params, searchParams }: Props) 
         {t("fiscalYear")}: {fy} — {t("throughPeriod")}: {through_}
       </p>
 
-      {!data || data.rows.length === 0 ? (
+      {!data || !data.rows || data.rows.length === 0 ? (
         <p style={{ color: "#999", fontStyle: "italic" }}>{t("noData")}</p>
       ) : (
         <div style={{ overflowX: "auto" }}>

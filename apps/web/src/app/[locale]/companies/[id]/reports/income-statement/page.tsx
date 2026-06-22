@@ -63,7 +63,7 @@ export default async function IncomeStatementPage({ params, searchParams }: Prop
         {t("fiscalYear")}: {fy} — {t("throughPeriod")}: {through_}
       </p>
 
-      {!data || data.lines.length === 0 ? (
+      {!data || !data.lines || data.lines.length === 0 ? (
         <p style={{ color: "#999", fontStyle: "italic" }}>{t("noData")}</p>
       ) : (
         <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "0.9em" }}>
