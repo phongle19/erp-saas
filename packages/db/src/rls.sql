@@ -143,7 +143,7 @@ CREATE CONSTRAINT TRIGGER je_balance_check
   FOR EACH ROW EXECUTE FUNCTION enforce_entry_balanced();
 
 -- ---------------------------------------------------------------------
--- 3. Immutability of posted/reversed entries (BEFORE UPDATE/DELETE)
+-- 3. Immutability of posted/reversed entries (BEFORE INSERT/UPDATE/DELETE)
 --    CHOSEN RULE:
 --      * journal_entries:
 --          - DELETE of a posted/reversed entry  -> always blocked.
@@ -154,10 +154,23 @@ CREATE CONSTRAINT TRIGGER je_balance_check
 --            identifying field can ride along with the status flip.
 --          - draft entries -> freely editable / deletable.
 --      * journal_lines:
---          - any UPDATE/DELETE of a line whose owning entry is posted/reversed
---            -> blocked. The lines carry the money, so locking them guarantees
---            posted entries' AMOUNTS are immutable.
+--          - any INSERT/UPDATE/DELETE of a line whose owning entry is
+--            posted/reversed -> blocked. INSERT is included to close the hole
+--            where a balanced line pair (e.g. debit 1M + credit 1M) could be
+--            inserted into a posted entry and pass the deferred balance check,
+--            silently altering the entry's account distribution.
 --          - lines of a draft entry -> freely editable / deletable.
+--
+--    P6 POSTING FLOW — REQUIRED SEQUENCING (within a single transaction):
+--      Because inserting lines into a posted/reversed entry is now blocked,
+--      the P6 PostingEngine MUST follow this exact order inside ONE transaction:
+--        1. INSERT journal_entry with status = 'draft'
+--        2. INSERT all journal_lines (entry is still draft -> INSERT allowed)
+--        3. UPDATE journal_entry status: 'draft' -> 'posted'
+--      The deferred balance constraint (jl_balance_check / je_balance_check)
+--      validates at COMMIT regardless of step ordering, so this sequence is
+--      safe. Attempting to INSERT lines after the UPDATE to 'posted' will
+--      raise "entry is posted and cannot be modified".
 -- ---------------------------------------------------------------------
 DROP TRIGGER IF EXISTS je_immutable ON journal_entries;
 DROP TRIGGER IF EXISTS jl_immutable ON journal_lines;
@@ -220,7 +233,7 @@ CREATE TRIGGER je_immutable
   FOR EACH ROW EXECUTE FUNCTION block_posted_mutation();
 
 CREATE TRIGGER jl_immutable
-  BEFORE UPDATE OR DELETE ON journal_lines
+  BEFORE INSERT OR UPDATE OR DELETE ON journal_lines
   FOR EACH ROW EXECUTE FUNCTION block_posted_mutation();
 
 -- ---------------------------------------------------------------------
