@@ -1,0 +1,52 @@
+services:
+  db:
+    # postgres:16 with packages/db/docker/init.sql baked into the image's
+    # /docker-entrypoint-initdb.d. Baking (rather than bind-mounting the single
+    # file) keeps first-init reliable across hosts where single-file bind mounts
+    # misbehave (e.g. Docker Desktop on macOS over VirtioFS).
+    build:
+      context: ./packages/db/docker
+      dockerfile: Dockerfile
+    environment:
+      # Superuser password only. init.sql creates the non-superuser 'erp' role
+      # and the erp / erp_test databases it owns. Do NOT set POSTGRES_DB here.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE}
+      PORT: ${PORT}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      API_URL: http://api:3001
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  db-data:

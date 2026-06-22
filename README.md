@@ -14,14 +14,27 @@ Any modifications deployed over a network must be released as open source under 
 
 This software does not enforce any particular hosting jurisdiction. Operators deploying in Vietnam must ensure compliance with the Law on Cybersecurity (24/2018/QH14) and Decree 53/2022/ND-CP regarding localisation of data for Vietnamese users.
 
-## Self-Host Quickstart
-
-> Full deployment instructions are provided in Task 12 — see `docker-compose.yml` (coming soon).
+## Self-host quickstart
 
 ```bash
-# Placeholder — see Task 12 / docker compose
-docker compose up
+cp .env.example .env
+# generate a real key and put it in .env:
+openssl rand -hex 32   # paste into FIELD_ENCRYPTION_KEY
+docker compose up -d --build
+# first run: bootstrap the admin (Owner)
+curl -X POST localhost:3001/auth/bootstrap -H 'content-type: application/json' \
+  -d '{"email":"admin@example.com","password":"changeme123","displayName":"Admin","ownerName":"My Business"}'
+# optional demo data:
+docker compose exec api pnpm --filter @erp/db seed
+# open http://localhost:3000/vi
 ```
+
+**Data residency is the deployer's responsibility (e.g. Vietnam's Decree 53/2022).**
+
+The `api` container connects to Postgres as a **non-superuser, `NOBYPASSRLS`** role
+(`erp`) that owns the database, so `FORCE ROW LEVEL SECURITY` is actually enforced.
+On startup the `api` container applies migrations + RLS policies, then serves on
+`:3001`; the `web` container proxies `/api/*` to the API over the compose network.
 
 ## Monorepo Structure
 
