@@ -61,3 +61,20 @@ Unresolved regulatory and technical decisions that must be confirmed before the 
     Phụ lục 1 and Circular 88/2021/TT-BTC; (b) completeness of the account list; (c) B01-DNN and
     B02-DNN line codes, labels, and account prefix mappings against the official form templates in
     Circular 133/2016/TT-BTC Phụ lục 2. Do not treat the seeded data as authoritative until verified.
+
+## Phase 1 known limitation — dual-nature control accounts in statement mapping (logged 2026-06-23)
+
+The Circular 133 Balance Sheet (B01-DNN) maps GL control accounts **131** (phải thu khách hàng /
+receivable) and **331** (phải trả người bán / supplier payable) to BOTH an asset line and a
+liability line, because each can legitimately carry a debit OR credit balance across different
+counterparties. The Phase 1 statement engine evaluates the **aggregate** account balance, so a
+single net balance is presented on one side correctly and mis-signed on the opposite line; the
+account **333** can likewise show a negative-liability on a net-debit (refund) balance.
+
+**Why:** faithful presentation requires per-counterparty sub-ledger (chi tiết công nợ) debit/credit
+netting, which is deferred. It is NOT an engine arithmetic bug — prefix-sum, nature sign, `_neg`
+subtraction, and the post-closing balance-sheet identity are all correct.
+
+**Mitigation now:** the demo/tests avoid 131/331 (cash sales via 111). **To resolve later:** add an
+accounts-receivable/payable sub-ledger and split each control account into its debit and credit
+components before mapping to B01 (a Phase 2 SD/MM concern).
