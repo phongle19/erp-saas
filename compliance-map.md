@@ -29,10 +29,13 @@ citing the source regulation at its call site. Ambiguities go to `docs/open-ques
 | Audit log commits atomically with request (no silent loss) | Audit integrity principle | `apps/api/src/audit/audit.interceptor.ts` (awaits INSERT via `mergeMap` inside request tx) | DONE |
 | RLS fail-closed: empty/unset `app.accessible_companies` yields no rows | Security design | `packages/db/src/rls.sql` (`app_accessible_companies()` returns `ARRAY[]::uuid[]` when unset) | DONE |
 | Data residency is deployer's responsibility | Nghị định 53/2022/ND-CP (Decree 53/2022 on data localisation) | Documented in `README.md`, `ARCHITECTURE.md`; self-hosted Docker, no telemetry | DONE (deployer obligation) |
-| CoA seeded per regime (account codes, names, types) | Thông tư 133, 88, 132, 200 appendices | `packages/config-regimes/src/registry.ts` (`chartOfAccounts` arrays, currently empty) | PLANNED (Phase 1) |
-| Balance Sheet + Income Statement templates | Thông tư 133/2016 (Mẫu B01, B02-DNN) | `packages/config-regimes/src/registry.ts` (`statementTemplates`, currently empty) | PLANNED (Phase 1) |
+| Circular 133 chart of accounts (Phụ lục 1) — account codes, names, types | Thông tư 133/2016/TT-BTC, Phụ lục 1 | `packages/config-regimes/src/coa/circular-133.ts`; provisioned to `chart_of_accounts` per company in `packages/db/src/seed.ts` | DONE (VERIFY against official text) |
+| Circular 88 chart of accounts | Thông tư 88/2021/TT-BTC, phụ lục | `packages/config-regimes/src/coa/circular-88.ts` | DONE (VERIFY against official text) |
+| Balance Sheet B01-DNN + Income Statement B02-DNN statement templates | Thông tư 133/2016/TT-BTC, Mẫu B01-DNN / B02-DNN | `packages/config-regimes/src/statements/circular-133.ts` (template definitions); `apps/api/src/accounting/statements.service.ts` (engine) | DONE (VERIFY line codes against official mẫu biểu) |
+| Double-entry enforcement (Σdebits = Σcredits) | Luật Kế toán số 88/2015/QH13, Art. 17 (bút toán kép) | DB deferred trigger in `packages/db/src/rls.sql`; app-layer invariant in `apps/api/src/accounting/posting-engine.service.ts` | DONE |
+| Journal immutability (posted entries cannot be modified) | Luật Kế toán số 88/2015/QH13, Art. 19 (chứng từ kế toán) | DB trigger in `packages/db/src/rls.sql` (blocks UPDATE/DELETE on posted journal_entries); reversal-only correction path in `apps/api/src/accounting/posting-engine.service.ts` | DONE |
+| Accounting periods (kỳ kế toán) — monthly regular + special closing/audit/retrospective | Luật Kế toán số 88/2015/QH13, Điều 13 | `packages/db/src/schema/periods.ts`; FY2026 periods (1–15) seeded in `packages/db/src/seed.ts` | DONE |
 | VAT declaration form 01/GTGT | Thông tư 80/2021/TT-BTC; Nghị định 126/2020/ND-CP | `packages/config-regimes/src/registry.ts` (`declarationForms`, currently empty) | PLANNED (Phase 2) |
-| Double-entry enforcement (Σdebits = Σcredits) | Luật Kế toán số 88/2015/QH13, Art. 17 (bút toán kép) | PostingEngine (Phase 1) | PLANNED (Phase 1) |
 | E-invoice issuance | Nghị định 123/2020/ND-CP; Thông tư 78/2021/TT-BTC | Provider abstraction layer (Phase 2) | PLANNED (Phase 2) |
 | Fixed asset depreciation | Thông tư 45/2013/TT-BTC | Fixed Assets module (Phase 2) | PLANNED (Phase 2) |
 | Payroll / PIT withholding | Luật Thuế TNCN; Thông tư 111/2013/TT-BTC (+ Dec-2025 amendment) | Payroll module (Phase 2) | PLANNED (Phase 2) |

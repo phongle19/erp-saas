@@ -48,28 +48,21 @@ Everything listed here is shipped, tested, and green in CI.
 
 ---
 
-## Phase 1 — Accounting core vertical slice
+## Phase 1 — Accounting core vertical slice (DONE)
 
-Target: first complete accounting flow for a Circular 133 SME — from chart of accounts
-to financial statements. This phase delivers the headline `PostingEngine` and makes the
-consolidation data model live.
+Everything listed here is shipped, tested, and green in CI.
 
-- **Chart of Accounts seeded per regime:** Circular 133 account tree from MoF appendix;
-  Circular 88 account tree. Loader in `@erp/config-regimes`.
-- **Journal entries + double-entry enforcement:** `journal_batches` + `journal_lines`
-  tables; `PostingEngine` — the single write path to the GL; app-layer invariant
-  (Σdebits = Σcredits); DB-layer constraint/trigger.
-- **General Ledger (GL):** account balances computed from journal lines; query helpers.
-- **Trial Balance:** per-company, per-period.
-- **Period management:** `accounting_periods` table; open/close/lock lifecycle.
-- **Balance Sheet + Income Statement:** for Circular 133 (Thông tư 133/2016/TT-BTC).
-- **Group / consolidated trial balance:** MANAGEMENT portfolio view aggregating
-  per-company trial balances via `coa_mappings`.
-- **Intercompany tagging column** on journal lines: `ic_counterparty_company_id` (FK
-  reserved in schema design; wired to posting in this phase).
-- **Audit trail** wired to journal posting.
-- **Full test coverage:** unit tests for double-entry invariant; integration tests for
-  period open/close; e2e tests for the full post → trial balance flow.
+- **Chart of Accounts per regime:** Circular 133 (TT133/2016/TT-BTC, Phụ lục 1, ~90 accounts) and Circular 88 (TT88/2021/TT-BTC) account trees in `@erp/config-regimes`; `getChartOfAccounts(regime)` loads them. CoA provisioned per company in `packages/db/src/seed.ts`.
+- **Accounting periods:** `accounting_periods` table with 12 regular monthly periods (periodType='regular') and 3 special periods (13=closing, 14=audit, 15=retrospective, periodType='special', null dates). FY2026 seeded for the demo SME.
+- **Posting engine (`PostingEngine`):** the sole write path to the GL. Enforces draft → lines → posted lifecycle. Draft entries accept line inserts; a DB deferred trigger checks Σdebit = Σcredit per entry at COMMIT; posted entries are immutable (DB trigger blocks UPDATE/DELETE). Reversals create a new mirrored entry and mark both `reversed`. Source: `apps/api/src/accounting/posting-engine.service.ts`.
+- **General Ledger (GL):** account balances computed from `journal_lines` (SUM debit_minor, SUM credit_minor grouped by account). Source: `apps/api/src/accounting/gl.service.ts`.
+- **Trial Balance:** per-company, per-period, with opening / period / closing balance columns. Source: `apps/api/src/accounting/trial-balance.service.ts`.
+- **Balance Sheet (B01-DNN) + Income Statement (B02-DNN):** Circular 133 statement engine maps TT133 account codes to MoF form lines via `_neg` sign-flip convention for contra accounts. Source: `apps/api/src/accounting/statements.service.ts`; templates in `packages/config-regimes/src/statements/circular-133.ts`.
+- **Demo seed with real numbers:** FY2026 Period 1 demo journals (E1–E5: capital injection, goods purchase, sales, COGS, admin expense) are posted so the trial balance and B01/B02 render live figures (revenue 1.2 B VND, COGS 700 M, operating profit 350 M). Source: `packages/db/src/seed.ts`.
+- **Read-only web UI:** Next.js pages for Trial Balance, Balance Sheet (B01-DNN), and Income Statement (B02-DNN) with regime selector. Source: `apps/web/src/app/[locale]/accounting/`.
+- **RLS extended to journals/reports:** `journal_entries`, `journal_lines`, `accounting_periods`, `chart_of_accounts` all protected by FORCE RLS; e2e test proves cross-company isolation. Source: `packages/db/src/rls.sql`, `apps/api/test/access-isolation.e2e.test.ts`.
+- **Full test coverage:** domain balance-validation unit tests; CoA/regime unit tests; statements engine unit tests; posting-engine integration tests; access-isolation e2e.
+- **Intercompany tagging column** `ic_counterparty_company_id` on `journal_lines` reserved (FK) for Phase 2 elimination engine.
 
 ---
 
