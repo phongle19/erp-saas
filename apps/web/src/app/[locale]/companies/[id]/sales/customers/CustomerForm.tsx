@@ -8,6 +8,7 @@ type Props = { companyId: string };
 
 export default function CustomerForm({ companyId }: Props) {
   const t = useTranslations("sales");
+  const tCommon = useTranslations("common");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [taxCode, setTaxCode] = useState("");
@@ -96,9 +97,9 @@ export default function CustomerForm({ companyId }: Props) {
           value={partnerType}
           onChange={(e) => setPartnerType(e.target.value as "customer" | "vendor" | "both")}
         >
-          <option value="customer">{t("customer")}</option>
-          <option value="vendor">Nhà cung cấp</option>
-          <option value="both">Cả hai</option>
+          <option value="customer">{t("partnerCustomer")}</option>
+          <option value="vendor">{t("partnerVendor")}</option>
+          <option value="both">{t("partnerBoth")}</option>
         </select>
       </label>
       <button
@@ -109,7 +110,7 @@ export default function CustomerForm({ companyId }: Props) {
         {status === "saving" ? "..." : t("createCustomer")}
       </button>
       {status === "ok" && (
-        <p style={{ color: "green", marginTop: "0.5rem" }}>Đã lưu</p>
+        <p style={{ color: "green", marginTop: "0.5rem" }}>{tCommon("saved")}</p>
       )}
       {status === "error" && (
         <p style={{ color: "red", marginTop: "0.5rem" }}>{errorMsg}</p>

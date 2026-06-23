@@ -139,9 +139,9 @@ export default function InvoiceForm({ companyId, partners, periods }: Props) {
 
       {noPartnersOrPeriods && (
         <p style={{ color: "#c00" }}>
-          {partners.length === 0 && "Chưa có khách hàng. "}
-          {periods.length === 0 && "Chưa có kỳ kế toán. "}
-          Vui lòng tạo trước khi lập hóa đơn.
+          {partners.length === 0 && t("noCustomersYet")}
+          {periods.length === 0 && t("noPeriodsYet")}
+          {t("createBeforeInvoice")}
         </p>
       )}
 
@@ -181,7 +181,7 @@ export default function InvoiceForm({ companyId, partners, periods }: Props) {
           </label>
 
           <label style={labelStyle}>
-            <span>Mô tả hóa đơn</span>
+            <span>{t("invoiceDesc")}</span>
             <input
               style={inputStyle}
               value={description}
@@ -296,9 +296,9 @@ export default function InvoiceForm({ companyId, partners, periods }: Props) {
             maxWidth: "420px",
           }}
         >
-          <p style={{ margin: 0, fontWeight: "bold", color: "#2a2" }}>Đã lập hóa đơn</p>
+          <p style={{ margin: 0, fontWeight: "bold", color: "#2a2" }}>{t("invoiceIssued")}</p>
           {created.invoiceNo && (
-            <p style={{ margin: "0.25rem 0" }}>Số HĐ: {created.invoiceNo}</p>
+            <p style={{ margin: "0.25rem 0" }}>{t("invoiceNoLabel")}{created.invoiceNo}</p>
           )}
           <p style={{ margin: "0.25rem 0" }}>
             {t("subtotal")}: {formatVnd(created.subtotalMinor)}

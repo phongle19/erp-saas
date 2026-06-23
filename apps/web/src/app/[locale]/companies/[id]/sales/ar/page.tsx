@@ -48,6 +48,7 @@ export default async function ArPage({ params, searchParams }: Props) {
   const { fiscalYear, through } = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("sales");
+  const tReports = await getTranslations("reports");
 
   const currentYear = new Date().getFullYear();
   const fy = fiscalYear ?? String(currentYear);
@@ -141,8 +142,8 @@ export default async function ArPage({ params, searchParams }: Props) {
               <tr>
                 <th style={thStyle}>{t("code")}</th>
                 <th style={thStyle}>{t("customer")}</th>
-                <th style={thRightStyle}>Nợ (Debit)</th>
-                <th style={thRightStyle}>Có (Credit)</th>
+                <th style={thRightStyle}>{tReports("debit")}</th>
+                <th style={thRightStyle}>{tReports("credit")}</th>
                 <th style={thRightStyle}>{t("arBalance")}</th>
               </tr>
             </thead>
@@ -150,7 +151,7 @@ export default async function ArPage({ params, searchParams }: Props) {
               {data.rows.map((row, idx) => (
                 <tr key={row.partnerId ?? idx}>
                   <td style={tdStyle}>{row.partnerCode ?? "—"}</td>
-                  <td style={tdStyle}>{row.partnerName ?? "(không xác định)"}</td>
+                  <td style={tdStyle}>{row.partnerName ?? t("unknownPartner")}</td>
                   <td style={tdRightStyle}>{formatVnd(row.debit)}</td>
                   <td style={tdRightStyle}>{formatVnd(row.credit)}</td>
                   <td style={tdRightStyle}>{formatVnd(row.balance)}</td>
@@ -160,7 +161,7 @@ export default async function ArPage({ params, searchParams }: Props) {
             <tfoot>
               <tr style={{ fontWeight: "bold", background: "#f5f5f5" }}>
                 <td style={tdStyle} colSpan={2}>
-                  Tổng cộng
+                  {tReports("total")}
                 </td>
                 <td style={tdRightStyle}></td>
                 <td style={tdRightStyle}></td>

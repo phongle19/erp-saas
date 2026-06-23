@@ -78,11 +78,13 @@ export default async function InvoicesPage({ params, searchParams }: Props) {
 
       {/* Note: no list-invoices endpoint exists yet — create + view AR for balances */}
       <p style={{ color: "#666", fontSize: "0.9em" }}>
-        Danh sách hóa đơn: xem{" "}
-        <Link href={`/${locale}/companies/${id}/sales/ar?fiscalYear=${fy}`}>
-          {t("ar")}
-        </Link>{" "}
-        để tra số dư phải thu.
+        {t.rich("invoiceListNote", {
+          link: (chunks) => (
+            <Link href={`/${locale}/companies/${id}/sales/ar?fiscalYear=${fy}`}>
+              {chunks}
+            </Link>
+          ),
+        })}
       </p>
 
       {/* Fiscal year selector (affects period list) */}

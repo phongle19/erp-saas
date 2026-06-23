@@ -115,3 +115,23 @@ test("sales ar: /vi/companies/test-id/sales/ar renders heading and no-data", asy
     timeout: 15_000,
   });
 });
+
+// Sales invoices route: server-component fetches for partners/periods fail
+// gracefully when API is offline — empty-guard state shows without a live backend.
+test("sales invoices: /vi/companies/test-id/sales/invoices renders heading and empty-guard", async ({
+  page,
+}) => {
+  const response = await page.goto("/vi/companies/test-id/sales/invoices");
+  expect(response, "page.goto returned no response").not.toBeNull();
+  // The route must be served (not 404).
+  expect(response!.status()).toBe(200);
+  // The page heading "Hóa đơn bán hàng" is always rendered regardless of API state.
+  await expect(
+    page.getByRole("heading", { name: "Hóa đơn bán hàng" })
+  ).toBeVisible({ timeout: 15_000 });
+  // When API is offline both partners and periods fetch return [] →
+  // InvoiceForm renders the empty-guard warning instead of the form.
+  await expect(
+    page.getByText("Vui lòng tạo trước khi lập hóa đơn.")
+  ).toBeVisible({ timeout: 15_000 });
+});
