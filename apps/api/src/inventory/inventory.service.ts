@@ -23,7 +23,7 @@
  */
 
 import { Injectable, UnprocessableEntityException, ForbiddenException } from '@nestjs/common';
-import { desc, eq, and, sql } from 'drizzle-orm';
+import { desc, asc, eq, and, sql } from 'drizzle-orm';
 import { schema } from '@erp/db';
 import { receiptBalance, issueCost } from '@erp/domain';
 import { currentTx } from '../db/tx-context.js';
@@ -107,8 +107,12 @@ export class InventoryService {
         ),
       )
       .orderBy(
-        desc(schema.inventoryMovements.createdAt),
-        desc(schema.inventoryMovements.id),
+        // Use the monotonic bigserial `seq` as the authoritative ordering key.
+        // `createdAt` is `defaultNow()` = transaction-start time, identical for all rows
+        // inserted in one transaction, and `id` is a random UUID — neither is safe as a
+        // tie-breaker. `seq` is a per-row sequence-backed bigint, strictly increasing
+        // across all inserts regardless of transaction timing.
+        desc(schema.inventoryMovements.seq),
       )
       .limit(1);
 
@@ -391,13 +395,14 @@ export class InventoryService {
         ),
       )
       .orderBy(
-        schema.inventoryMovements.createdAt,
-        schema.inventoryMovements.id,
+        // Order by the monotonic `seq` for a stable, deterministic chronological list.
+        asc(schema.inventoryMovements.seq),
       );
 
     // Serialise bigint fields to strings.
     return rows.map((r) => ({
       ...r,
+      seq: r.seq.toString(),
       quantity: r.quantity.toString(),
       unitCostMinor: r.unitCostMinor.toString(),
       totalCostMinor: r.totalCostMinor.toString(),

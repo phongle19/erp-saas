@@ -362,6 +362,96 @@ maybe('Inventory valuation service (B3)', () => {
     expect(mvts).toHaveLength(0);
   });
 
+  // ---------------------------------------------------------------------------
+  // Regression test: same-material, same-transaction ordering (monotonic seq)
+  //
+  // Before the fix: latestBalance ordered by (createdAt DESC, id DESC).
+  // createdAt = transaction-start timestamp — IDENTICAL for both rows in one tx.
+  // id is a random UUID, so tie-breaking was non-deterministic: a later read
+  // could pick the EARLIER movement with a partial balance.
+  //
+  // After the fix: ordering by seq DESC (bigserial, strictly monotonic) ensures
+  // the second row inserted is always returned, regardless of tx timing.
+  // ---------------------------------------------------------------------------
+  it('same-material same-tx: latestBalance reads the truly-last movement (seq fix)', async () => {
+    // Create a dedicated material to isolate this test.
+    let seqTestMaterialId: string;
+    await runInTenantTx(
+      { userId: null, isAdmin: true, accessibleCompanies: [] },
+      async () => {
+        const { db } = currentTx();
+        const [m] = await db
+          .insert(schema.materials)
+          .values({
+            companyId: smeId,
+            code: 'M_SEQ_TEST',
+            name: 'Seq ordering test material',
+            unit: 'pcs',
+            inventoryAccountCode: '156',
+          })
+          .returning();
+        seqTestMaterialId = m!.id;
+      },
+    );
+
+    // Insert TWO receipt movements for the same material IN THE SAME TRANSACTION.
+    // Movement 1: 10 units @ total 1,000,000 → cumulative balance qty 10, value 1,000,000
+    // Movement 2: 5 units @ total 600,000   → cumulative balance qty 15, value 1,600,000
+    //
+    // We insert these directly via the service in a SINGLE tenant tx so both rows
+    // share the same createdAt timestamp. The advisory lock inside applyReceipt
+    // serialises the two calls within the same tx (each awaits the previous, so
+    // the seq values will differ even if createdAt is the same).
+    await runInTenantTx(
+      { userId: null, isAdmin: true, accessibleCompanies: [] },
+      async () => {
+        const s = svc();
+        // First receipt inside the tx.
+        await s.applyReceipt({
+          materialId: seqTestMaterialId,
+          quantity: 10n,
+          cost: 1_000_000n,
+          sourceDocType: 'test',
+          sourceDocId: FAKE_DOC_ID,
+          journalEntryId: FAKE_JOURNAL_ID,
+          periodId,
+          movementDate: '2026-02-01',
+          companyId: smeId,
+        });
+        // Second receipt in the SAME tx — same createdAt, but higher seq.
+        await s.applyReceipt({
+          materialId: seqTestMaterialId,
+          quantity: 5n,
+          cost: 600_000n,
+          sourceDocType: 'test',
+          sourceDocId: FAKE_DOC_ID,
+          journalEntryId: FAKE_JOURNAL_ID,
+          periodId,
+          movementDate: '2026-02-01',
+          companyId: smeId,
+        });
+      },
+    );
+
+    // In a SEPARATE tx (simulating a later request), read the on-hand balance.
+    // Must equal the SECOND movement's cumulative balance: qty 15, value 1,600,000.
+    // Before the fix this could non-deterministically read qty 10 / value 1,000,000.
+    const onHand = await adminTx((s) => s.onHand(smeId, seqTestMaterialId!));
+    expect(onHand.qty).toBe(15n);
+    expect(onHand.value).toBe(1_600_000n);
+    expect(onHand.avgUnitCost).toBe(1_600_000n / 15n); // 106,666n (integer division)
+
+    // Also verify the movements ledger lists them in insertion order (seq ASC).
+    const mvts = await adminTx((s) => s.movements(smeId, seqTestMaterialId!));
+    expect(mvts).toHaveLength(2);
+    expect(mvts[0]!.quantity).toBe('10');
+    expect(mvts[0]!.balanceQtyAfter).toBe('10');
+    expect(mvts[0]!.balanceValueAfter).toBe('1000000');
+    expect(mvts[1]!.quantity).toBe('5');
+    expect(mvts[1]!.balanceQtyAfter).toBe('15');
+    expect(mvts[1]!.balanceValueAfter).toBe('1600000');
+  });
+
   it('HKD material movements not visible in SME valuationReport', async () => {
     // First add a receipt for hkdMaterialId via HKD admin tx.
     await runInTenantTx(

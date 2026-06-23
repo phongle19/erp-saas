@@ -1,0 +1,2 @@
+ALTER TABLE "inventory_movements" ADD COLUMN "seq" bigserial NOT NULL;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "inventory_movement_seq_idx" ON "inventory_movements" USING btree ("company_id","material_id","seq");

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, date, timestamp, bigint, boolean, unique, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, date, timestamp, bigint, bigserial, boolean, unique, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { movementType } from './enums.js';
 import { companies } from './companies.js';
@@ -31,4 +31,15 @@ export const inventoryMovements = pgTable('inventory_movements', {
   movementDate: date('movement_date').notNull(),
   periodId: uuid('period_id').references(() => accountingPeriods.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({ idx: index('inventory_movement_company_material_idx').on(t.companyId, t.materialId, t.createdAt) }));
+  /**
+   * Monotonically increasing insertion-order key (bigserial = sequence-backed bigint).
+   * Used as the primary ordering key in latestBalance() and movements() to guarantee
+   * deterministic ordering even when multiple rows share the same createdAt timestamp
+   * (e.g. two receipt movements inserted in the same transaction for the same material).
+   * Random UUID tie-breaking is NOT safe for this purpose.
+   */
+  seq: bigserial('seq', { mode: 'bigint' }).notNull(),
+}, (t) => ({
+  idx: index('inventory_movement_company_material_idx').on(t.companyId, t.materialId, t.createdAt),
+  idxSeq: index('inventory_movement_seq_idx').on(t.companyId, t.materialId, t.seq),
+}));

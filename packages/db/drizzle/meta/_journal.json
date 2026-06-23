@@ -43,6 +43,13 @@
       "when": 1782187093337,
       "tag": "0005_low_loki",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782189192618,
+      "tag": "0006_free_toad",
+      "breakpoints": true
     }
   ]
 }
