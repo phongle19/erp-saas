@@ -140,7 +140,7 @@ export class EInvoiceService {
       },
       mauSo: DEFAULT_MAU_SO,
       kyHieu: DEFAULT_KY_HIEU,
-      currency: invoice.companyId ? 'VND' : 'VND', // functional currency; Phase 2a is VND-only
+      currency: 'VND', // functional currency; Phase 2a is VND-only
       items: lines.map((l) => ({
         description: l.description,
         quantity: l.quantity.toString(),

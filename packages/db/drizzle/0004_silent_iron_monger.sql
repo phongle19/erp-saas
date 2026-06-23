@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "einvoice_one_issued_per_invoice" ON "einvoices" USING btree ("sales_invoice_id") WHERE status = 'issued';

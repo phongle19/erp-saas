@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, bigint, jsonb, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, bigint, jsonb, unique, uniqueIndex } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { einvoiceStatus, einvoiceProvider } from './enums.js';
 import { companies } from './companies.js';
@@ -31,4 +31,9 @@ export const einvoices = pgTable('einvoices', {
   // taxpayer. NULLs are distinct in Postgres, so multiple 'pending' rows (null số) are allowed;
   // uniqueness only bites once a number is assigned at issue.
   serialUq: unique('einvoice_serial_uq').on(t.companyId, t.mauSo, t.kyHieu, t.soHoaDon),
+  // At most ONE issued e-invoice per sales invoice — closes the concurrent double-issue race
+  // at the DB layer (the app-level "already issued?" check is not atomic with the insert).
+  oneIssued: uniqueIndex('einvoice_one_issued_per_invoice')
+    .on(t.salesInvoiceId)
+    .where(sql`status = 'issued'`),
 }));
