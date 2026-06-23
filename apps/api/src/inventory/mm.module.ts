@@ -10,6 +10,8 @@ import { GoodsIssueService } from '../purchasing/goods-issue.service.js';
 import { GoodsIssueController } from '../purchasing/goods-issue.controller.js';
 import { ApService } from '../purchasing/ap.service.js';
 import { ApController } from '../purchasing/ap.controller.js';
+import { VendorPaymentService } from '../purchasing/vendor-payment.service.js';
+import { VendorPaymentController } from '../purchasing/vendor-payment.controller.js';
 
 /**
  * MmModule (Materials Management) — Phase 2b.
@@ -34,7 +36,8 @@ import { ApController } from '../purchasing/ap.controller.js';
  *   Read-only; reconciles to the trial-balance 331 balance. Mirrors A7 ArService.
  *   Also verifies inventory-valuation reconciliation to TB 156 in integration tests.
  *
- * B8 (vendor payments settling AP) will be added here when implemented.
+ * B8: VendorPaymentService/Controller — vendor payments settling AP.
+ *   Dr 331 (AP, with partnerId) / Cr 111/112 (cash or bank). Mirrors A6 receipts.
  */
 @Module({
   imports: [DocumentsModule],
@@ -44,8 +47,9 @@ import { ApController } from '../purchasing/ap.controller.js';
     PurchaseInvoiceController,
     GoodsIssueController,
     ApController,
+    VendorPaymentController,
   ],
-  providers: [InventoryService, MaterialsService, PurchaseInvoiceService, GoodsIssueService, ApService],
-  exports: [InventoryService, MaterialsService, PurchaseInvoiceService, GoodsIssueService, ApService],
+  providers: [InventoryService, MaterialsService, PurchaseInvoiceService, GoodsIssueService, ApService, VendorPaymentService],
+  exports: [InventoryService, MaterialsService, PurchaseInvoiceService, GoodsIssueService, ApService, VendorPaymentService],
 })
 export class MmModule {}
