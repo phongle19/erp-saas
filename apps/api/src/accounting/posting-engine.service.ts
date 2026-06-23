@@ -18,6 +18,8 @@ export interface PostLineInput {
   debitMinor: string | bigint;
   creditMinor: string | bigint;
   memo?: string | undefined;
+  /** AR/AP sub-ledger dimension: FK to business_partners. Nullable. */
+  partnerId?: string | undefined;
 }
 
 export interface PostInput {
@@ -154,6 +156,7 @@ export class PostingEngineService {
       debitMinor: BigInt(l.debitMinor),
       creditMinor: BigInt(l.creditMinor),
       ...(l.memo !== undefined ? { lineMemo: l.memo } : {}),
+      ...(l.partnerId !== undefined ? { partnerId: l.partnerId } : {}),
     }));
     const lines = await db
       .insert(schema.journalLines)
@@ -231,7 +234,9 @@ export class PostingEngineService {
       })
       .returning();
 
-    // 5. INSERT swapped lines (keep accountId / companyId; swap debit/credit).
+    // 5. INSERT swapped lines (keep accountId / companyId / partnerId; swap debit/credit).
+    //    Preserving partnerId keeps the AR/AP sub-ledger consistent when a document
+    //    is cancelled: the reversing entry hits the same partner account.
     const lineValues = original.lines.map((l) => ({
       entryId: entry!.id,
       companyId: l.companyId,
@@ -239,6 +244,7 @@ export class PostingEngineService {
       debitMinor: l.creditMinor,
       creditMinor: l.debitMinor,
       ...(l.lineMemo !== null ? { lineMemo: l.lineMemo } : {}),
+      ...(l.partnerId !== null ? { partnerId: l.partnerId } : {}),
     }));
     const lines = await db
       .insert(schema.journalLines)

@@ -25,6 +25,8 @@ const PostLineSchema = z.object({
   debitMinor: minorStr,
   creditMinor: minorStr,
   memo: z.string().optional(),
+  /** AR/AP sub-ledger dimension: FK to business_partners. Nullable. */
+  partnerId: z.string().uuid().optional(),
 });
 
 const PostInputSchema = z.object({

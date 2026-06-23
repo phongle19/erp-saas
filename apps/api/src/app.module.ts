@@ -13,6 +13,7 @@ import { CompaniesModule } from './companies/companies.module.js';
 import { GroupsModule } from './groups/groups.module.js';
 import { AccessModule } from './access/access.module.js';
 import { AccountingModule } from './accounting/accounting.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
 import { AuditInterceptor } from './audit/audit.interceptor.js';
 
 /**
@@ -31,6 +32,7 @@ import { AuditInterceptor } from './audit/audit.interceptor.js';
     GroupsModule,
     AccessModule,
     AccountingModule,
+    DocumentsModule,
   ],
   controllers: [HealthController],
   providers: [
