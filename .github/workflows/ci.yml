@@ -26,6 +26,11 @@ jobs:
     env:
       DATABASE_URL: postgres://erp:erp@localhost:5432/erp_test
       TEST_DATABASE_URL: postgres://erp:erp@localhost:5432/erp_test
+      # The api integration tests give each vitest worker its OWN database
+      # (erp_test_p<id>), created via this superuser connection (the `erp` app role
+      # is NOSUPERUSER NOCREATEDB and cannot CREATE DATABASE). The base erp_test db
+      # and erp role are created by the step below; the per-worker dbs are extra.
+      TEST_SUPERUSER_URL: postgres://postgres:postgres@localhost:5432/postgres
       FIELD_ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
 
     steps:
