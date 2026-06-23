@@ -66,30 +66,65 @@ Everything listed here is shipped, tested, and green in CI.
 
 ---
 
-## Phase 2+ — Operational modules
+## Phase 2a — Sales billing → AR → receipts (DONE)
 
-Modules below are listed in approximate delivery order. Each is a vertical slice that
-builds on the Phase 1 GL.
+Everything listed here is shipped, tested, and green in CI.
 
-### Sales (SD) — Order-to-Cash
-AR sub-ledger, sales orders, delivery notes, invoices. RLS-isolated per company.
-Revenue recognition via PostingEngine.
+- **Customer master (`business_partners`):** code, name, MST (tax code), partner type
+  (customer/vendor/both), RLS-isolated per company. CRUD at `GET|POST /customers`, `GET|PATCH /customers/:id`.
+- **Document → GL posting framework (`DocumentPostingService`):** thin wrapper over `PostingEngine`
+  that records the source document reference (sales invoice, receipt) on the journal entry,
+  enforcing the single-write-path rule for all operational modules.
+- **Sales invoice output VAT:** `SalesInvoiceService` resolves effective-dated VAT rates
+  (`findEffectiveRule`) per invoice date, computes line net + VAT with bigint helpers
+  (`lineNet`, `vatFor`), enforces Σ-balance, posts Dr 131 / Cr 511 / Cr 3331.
+  VAT rule type + resolved percent stored per line for audit trail.
+  Sources: Law on VAT 48/2024/QH15, Resolution 204/2025/QH15.
+- **AR sub-ledger resolving the TK 131 dual-nature limitation:** `journal_lines.partner_id`
+  FK to `business_partners` tags every AR/AP line with its counterparty. `ArService`
+  aggregates per-customer debit/credit from journal lines so overdrawn (credit) 131 positions
+  are visible per customer even when the aggregate net is a debit. Resolves the Phase-1
+  open-question on 131/331 dual-nature accounts for the receivable side.
+- **Customer receipts:** `CustomerReceiptsService` posts Dr 111 (or 112) / Cr 131 with
+  `partnerId`, linking the receipt to the originating invoice's partner; `customer_receipts`
+  table records receipt status and journal entry reference.
+- **E-invoice domain + selectable-provider stubs:** `einvoices` table with serial-uniqueness
+  and at-most-one-issued-per-sales-invoice constraints. `EinvoiceService` dispatches to the
+  configured provider adapter (`companies.einvoice_provider`: viettel/vnpt/misa); all three
+  are stubs (no live HTTP). Sources: Decree 123/2020/ND-CP, Circular 78/2021/TT-BTC,
+  GDT XML schema 1450/QĐ-TCT, Decree 70/2025/ND-CP.
+- **Demo seed:** 2 customers (KH001 An Phát, KH002 Bình Minh); 1 posted sales invoice
+  (2 lines: 10M@10% + 5M@8% VAT = total 16,400,000); 1 partial receipt (6,000,000);
+  1 issued e-invoice stub. KH001 AR balance = 10,400,000 VND.
+- **Read-only web UI:** customers list/detail, sales invoices list/detail with VAT breakdown,
+  AR aging table. Source: `apps/web/src/app/[locale]/companies/[id]/sales/`.
+- **RLS extended to sales/AR/einvoice:** `business_partners`, `sales_invoices`,
+  `sales_invoice_lines`, `customer_receipts`, `einvoices` all covered by FORCE RLS; e2e
+  access-isolation tests prove cross-company isolation.
 
-### Purchasing (MM) — Procure-to-Pay + Inventory
+---
+
+## Phase 2b — Purchasing (MM) (PLANNED)
+
 AP sub-ledger, purchase orders, goods receipts, vendor invoices. Inventory costing:
 weighted-average method (Thông tư 200, Circular 133 and 88 variants). GR/IR clearing.
+TK 331 (Phải trả người bán) sub-ledger via `partner_id` on journal lines (same pattern
+as 131 in Phase 2a).
 
-### Cash and Bank + Reconciliation
+## Phase 2c — Cash / Bank (PLANNED)
+
 Bank accounts per company, payment journals, bank reconciliation (statement import vs
 GL). Payments in VND and foreign currency (Phase 2 multi-currency).
 
-### Fixed Assets (Circular 45/2013/TT-BTC)
-Asset register, acquisition, depreciation schedules (straight-line / declining-balance
-as permitted per Circular 45), disposal, revaluation. Depreciation auto-posting via
-PostingEngine.
+## Phase 2d — Fixed Assets (PLANNED)
 
-### E-Invoicing (Decree 123/2020/ND-CP + Circular 78/2021/TT-BTC)
-Provider abstraction layer (plugin interface); adapters for Viettel, VNPT, MISA.
+Asset register, acquisition, depreciation schedules (straight-line / declining-balance
+as permitted per Circular 45/2013/TT-BTC), disposal, revaluation. Depreciation
+auto-posting via PostingEngine.
+
+## Phase 2e — E-invoice live transmission (PLANNED)
+
+Replace provider stubs with live HTTP adapters for Viettel, VNPT, and MISA.
 Supports authenticated e-invoices and cash-register e-invoices (Circular 78 chap. VI).
 Submission, status polling, cancellation/replacement flows. PDF/XML storage.
 

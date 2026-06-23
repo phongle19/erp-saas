@@ -13,6 +13,9 @@ import { CompaniesModule } from './companies/companies.module.js';
 import { GroupsModule } from './groups/groups.module.js';
 import { AccessModule } from './access/access.module.js';
 import { AccountingModule } from './accounting/accounting.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
+import { SalesModule } from './sales/sales.module.js';
+import { EInvoiceModule } from './einvoice/einvoice.module.js';
 import { AuditInterceptor } from './audit/audit.interceptor.js';
 
 /**
@@ -31,6 +34,9 @@ import { AuditInterceptor } from './audit/audit.interceptor.js';
     GroupsModule,
     AccessModule,
     AccountingModule,
+    DocumentsModule,
+    SalesModule,
+    EInvoiceModule,
   ],
   controllers: [HealthController],
   providers: [

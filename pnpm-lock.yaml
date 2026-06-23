@@ -178,6 +178,9 @@ importers:
       '@erp/config-regimes':
         specifier: workspace:*
         version: link:../config-regimes
+      '@erp/domain':
+        specifier: workspace:*
+        version: link:../domain
       drizzle-orm:
         specifier: ^0.36.0
         version: 0.36.4(@types/react@19.2.17)(postgres@3.4.9)(react@19.2.4)

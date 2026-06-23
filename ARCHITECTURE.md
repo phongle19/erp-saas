@@ -236,6 +236,81 @@ respectively. A customer advance (credit balance on 131) will appear as a negati
 on the Balance Sheet rather than being reclassified to liability. This is a known
 limitation tracked in `docs/open-questions.md`.
 
+**Phase 2a update:** TK 131 is now decomposable per counterparty via `journal_lines.partner_id`.
+`ArService` aggregates per-customer debit/credit independently, so a credit balance on 131
+for one customer is visible without being masked by debit balances of others. The aggregate
+B01 mapping limitation remains (the statement engine still uses the net 131 balance), but
+the AR sub-ledger provides faithful per-customer representation. TK 331 (AP) resolution
+follows in Phase 2b (Purchasing / MM).
+
+---
+
+## Sales / AR (Phase 2a)
+
+### Document → GL posting framework
+
+`DocumentPostingService` (`apps/api/src/sales/document-posting.service.ts`) is a thin
+wrapper over `PostingEngine` that records the originating document reference (sales
+invoice id, receipt id) on the journal entry. All operational modules (sales, purchasing,
+cash, fixed assets) must go through this service rather than calling `PostingEngine`
+directly, preserving the single-write-path invariant.
+
+### Sales invoice posting
+
+`SalesInvoiceService` (`apps/api/src/sales/sales-invoice.service.ts`) handles the full
+invoice lifecycle:
+
+1. Validate period is open; resolve effective-dated VAT rate via `findEffectiveRule`.
+2. Compute line net + VAT with `lineNet(qty, unitPrice)` and `vatFor(net, ratePct)` —
+   both bigint, HALF_UP, no floats.
+3. Insert `sales_invoices` (draft) + `sales_invoice_lines` (with `vatRuleType`,
+   `vatRatePct` stored for audit trail per Decree 123/2020/ND-CP).
+4. Post GL entry via `DocumentPostingService`: **Dr 131 / Cr 511 / Cr 3331**.
+   `partner_id` on the 131 line tags the customer for AR sub-ledger decomposition.
+5. Mark invoice `posted`.
+
+VAT sources: Law on VAT 48/2024/QH15 Art. 8.1 (10%); Resolution 204/2025/QH15 (8%
+through 2026-12-31). A post-2026 invoice claiming the 8% rate returns HTTP 422.
+
+### AR sub-ledger and the `partner_id` dimension
+
+`journal_lines.partner_id` (FK → `business_partners`) is the key mechanism. Every AR/AP
+posting carries the counterparty id on the affected control account line (131 for
+receivables, 331 for payables in Phase 2b). `ArService`
+(`apps/api/src/sales/ar.service.ts`) aggregates `SUM(debit_minor)` and
+`SUM(credit_minor)` from `journal_lines` filtered by `account_code LIKE '131%'` and
+grouped by `partner_id`. This gives per-customer outstanding (debit) and overpayment
+(credit) without conflating counterparties. The per-customer net is the true receivable
+balance used for aging.
+
+This design resolves the Phase-1 dual-nature limitation for TK 131 as documented in
+`docs/open-questions.md`.
+
+### Customer receipts
+
+`CustomerReceiptsService` (`apps/api/src/sales/customer-receipts.service.ts`) posts
+**Dr 111 (or 112) / Cr 131** with `partnerId`, reducing the customer's AR balance.
+The `customer_receipts` table records the settlement account, amount, period, and
+journal entry reference for the audit trail.
+
+### E-invoice domain + selectable-provider registry
+
+`EinvoiceService` (`apps/api/src/einvoice/einvoice.service.ts`) dispatches to the
+configured provider adapter. The provider is selected per company
+(`companies.einvoice_provider`: `viettel` | `vnpt` | `misa`). All three adapters are
+currently stubs (no live HTTP to provider APIs). The `einvoices` table enforces two
+invariants at the DB level:
+
+- **Serial uniqueness** (`einvoice_serial_uq`): `(company_id, mau_so, ky_hieu, so_hoa_don)`
+  unique — satisfies Decree 123/2020/ND-CP requirement that an issued serial is unique
+  per taxpayer. NULL `so_hoa_don` values are distinct (multiple pending rows allowed).
+- **At-most-one-issued per sales invoice** (`einvoice_one_issued_per_invoice`): partial
+  unique index on `(sales_invoice_id)` WHERE `status = 'issued'` — closes the concurrent
+  double-issue race at the DB layer.
+
+Regulatory sources: Decree 123/2020/ND-CP; Circular 78/2021/TT-BTC; GDT XML schema
+1450/QĐ-TCT; Decree 70/2025/ND-CP (amended).
+
 ---
 
 ## Audit trail

@@ -15,6 +15,27 @@
       "when": 1782157399420,
       "tag": "0001_furry_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782178218788,
+      "tag": "0002_rainy_hellcat",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782178639852,
+      "tag": "0003_remarkable_blink",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782182381362,
+      "tag": "0004_silent_iron_monger",
+      "breakpoints": true
     }
   ]
 }

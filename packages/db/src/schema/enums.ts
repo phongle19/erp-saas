@@ -10,3 +10,7 @@ export const accountType = pgEnum('account_type', ['asset', 'liability', 'equity
 export const periodType = pgEnum('period_type', ['regular', 'special']);
 export const periodStatus = pgEnum('period_status', ['open', 'closed', 'locked']);
 export const journalStatus = pgEnum('journal_status', ['draft', 'posted', 'reversed']);
+export const partnerType = pgEnum('partner_type', ['customer', 'vendor', 'both']);
+export const salesDocStatus = pgEnum('sales_doc_status', ['draft', 'posted', 'cancelled']);
+export const einvoiceStatus = pgEnum('einvoice_status', ['pending', 'issued', 'failed', 'cancelled']);
+export const einvoiceProvider = pgEnum('einvoice_provider', ['viettel', 'vnpt', 'misa']);

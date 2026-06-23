@@ -28,6 +28,7 @@ const DB_PKG = join(__dirname, '../../../../packages/db');
 export async function truncateAll(rawSql: ReturnType<typeof makeSql>): Promise<void> {
   await rawSql.unsafe(`
     TRUNCATE TABLE
+      einvoices, sales_invoice_lines, sales_invoices, customer_receipts, business_partners,
       journal_lines, journal_entries, accounting_periods,
       audit_log, coa_mappings, group_chart_of_accounts, chart_of_accounts,
       group_memberships, groups, ownership_links, company_access, companies,

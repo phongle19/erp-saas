@@ -4,6 +4,7 @@ import { journalStatus } from './enums.js';
 import { companies } from './companies.js';
 import { accountingPeriods } from './periods.js';
 import { chartOfAccounts } from './coa.js';
+import { businessPartners } from './sales.js';
 
 export const journalEntries = pgTable('journal_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -30,6 +31,7 @@ export const journalLines = pgTable('journal_lines', {
   debitMinor: bigint('debit_minor', { mode: 'bigint' }).notNull().default(sql`0`),
   creditMinor: bigint('credit_minor', { mode: 'bigint' }).notNull().default(sql`0`),
   icCounterpartyCompanyId: uuid('ic_counterparty_company_id'),  // reserved for Phase 2 eliminations
+  partnerId: uuid('partner_id').references(() => businessPartners.id),  // AR/AP partner dimension; nullable
   lineMemo: text('line_memo'),
 }, (t) => ({
   nonNeg: check('line_amounts_non_negative', sql`${t.debitMinor} >= 0 AND ${t.creditMinor} >= 0`),
