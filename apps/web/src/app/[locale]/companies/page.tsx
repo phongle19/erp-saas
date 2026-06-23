@@ -44,6 +44,7 @@ export default async function CompaniesPage({ params }: Props) {
   const t = await getTranslations("companies");
   const tReports = await getTranslations("reports");
   const tSales = await getTranslations("sales");
+  const tPurchasing = await getTranslations("purchasing");
   const companies = await fetchCompanies();
 
   return (
@@ -61,6 +62,9 @@ export default async function CompaniesPage({ params }: Props) {
               </Link>{" "}
               <Link href={`/${locale}/companies/${c.id}/sales`}>
                 [{tSales("sales")}]
+              </Link>{" "}
+              <Link href={`/${locale}/companies/${c.id}/purchasing`}>
+                [{tPurchasing("purchasing")}]
               </Link>
             </li>
           ))}

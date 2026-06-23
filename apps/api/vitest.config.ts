@@ -23,6 +23,18 @@ export default defineConfig({
     // fileParallelism:false serial hacks (which did NOT reliably serialize on the
     // Linux CI runner) are intentionally gone. Keep the generous timeouts.
     pool: 'forks',
+    // Cap the number of worker forks. Each worker's app opens several Postgres
+    // pools at module load (tenant-tx, auth, session) plus the test rawSql
+    // handle. Unbounded forks (vitest defaults to ~#CPUs) multiplied by those
+    // pools can exceed Postgres `max_connections` (default 100), causing connect
+    // failures that surface as supertest "Parse Error" sockets, skipped files, or
+    // rotating ledger/receipts/payment failures. Bounding to 4 forks — combined
+    // with DB_POOL_MAX=5 set in test/setup-env.ts — keeps total connections well
+    // under 100 (≈ 4 forks × 4 pools × 5 = 80) while preserving per-worker DB
+    // isolation and most of the parallel speedup.
+    poolOptions: {
+      forks: { maxForks: 4, minForks: 1 },
+    },
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

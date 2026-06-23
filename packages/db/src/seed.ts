@@ -1,7 +1,7 @@
 import { sql as drizzleSql } from 'drizzle-orm';
 import { makeSql, makeDb, schema } from './client.js';
 import { getChartOfAccounts } from '@erp/config-regimes';
-import { lineNet, vatFor } from '@erp/domain';
+import { lineNet, vatFor, receiptBalance, issueCost } from '@erp/domain';
 
 /**
  * Demo seed. Run ONLY on a fresh database (e.g. right after `migrate` on a new install).
@@ -548,6 +548,359 @@ async function main() {
       }, null, 2));
     } else {
       console.log('Phase 2a sales data already seeded — skipping');
+    }
+
+    // ── PART C: Phase 2b — Materials Management / Procure-to-Pay demo data ────────────────
+    // Idempotency: skip if materials already seeded for this company
+    const existingMaterials = await tx
+      .select({ id: schema.materials.id })
+      .from(schema.materials)
+      .where(drizzleSql`${schema.materials.companyId} = ${sme.id}`)
+      .limit(1);
+
+    if (existingMaterials.length === 0) {
+      // C1. Vendor business_partner
+      //     Thông tư 133/2016/TT-BTC — chi tiết công nợ phải trả theo từng nhà cung cấp
+      //     AP (TK 331) sub-ledger uses the same partner_id dimension as AR (TK 131)
+      const vendorRows = await tx.insert(schema.businessPartners).values({
+        companyId: sme.id,
+        code: 'NCC001',
+        name: 'Công ty TNHH Vật tư Hà Nội',
+        taxCode: '0105566778',
+        partnerType: 'vendor',
+      }).returning();
+      const vendor = vendorRows[0]!;
+
+      // C2. Material master
+      //     TK 152 — Nguyên liệu, vật liệu (raw materials)
+      //     TK 156 — Hàng hóa (merchandise)
+      //     Basis: Thông tư 133/2016/TT-BTC, Phụ lục 1; VAS 02 — weighted-average inventory method
+      const materialRows = await tx.insert(schema.materials).values([
+        {
+          companyId: sme.id,
+          code: 'VT001',
+          name: 'Nguyên vật liệu A',
+          unit: 'kg',
+          inventoryAccountCode: '152',
+        },
+        {
+          companyId: sme.id,
+          code: 'HH001',
+          name: 'Hàng hóa B',
+          unit: 'cái',
+          inventoryAccountCode: '156',
+        },
+      ]).returning();
+      const vt001 = materialRows.find((m) => m.code === 'VT001')!;
+      const hh001 = materialRows.find((m) => m.code === 'HH001')!;
+
+      // C3. Purchase invoice (Period 1/FY2026) — goods receipt + input VAT + AP posting
+      //     Line 1: 100 kg VT001 @ 50,000 each = 5,000,000 (net) @ 10% input VAT → 500,000
+      //     Line 2: 200 cái HH001 @ 30,000 each = 6,000,000 (net) @ 8% input VAT → 480,000
+      //     Subtotal: 11,000,000 | VAT: 980,000 | Total: 11,980,000
+      //
+      //     Input VAT deductibility conditions:
+      //       - 10% rate: Law on VAT 48/2024/QH15, Điều 8.1 (standard rate)
+      //       - 8% reduced rate through 2026-12-31: Resolution 204/2025/QH15
+      //       - Non-cash payment required for invoice ≥ VND 5,000,000 (effective 2025-07-01):
+      //         Law 48/2024/QH15 (input-VAT deductibility condition); Decree 181/2025
+      //     Inventory / AP basis: Thông tư 133/2016/TT-BTC; VAS 02
+
+      // Line cost computation using bigint helpers — no floats
+      // VT001 line: qty 100 @ unitCost 50,000 → lineCost 5,000,000
+      const piLine1Qty      = 100n;
+      const piLine1Unit     = 50_000n;
+      const piLine1Cost     = piLine1Qty * piLine1Unit;          // 5,000,000
+      const piLine1Vat      = vatFor(piLine1Cost, 10n);          // 500,000 (10%)
+
+      // HH001 line: qty 200 @ unitCost 30,000 → lineCost 6,000,000
+      // VAT reduced rate 8% through 2026-12-31 — Resolution 204/2025/QH15
+      const piLine2Qty      = 200n;
+      const piLine2Unit     = 30_000n;
+      const piLine2Cost     = piLine2Qty * piLine2Unit;          // 6,000,000
+      const piLine2Vat      = vatFor(piLine2Cost, 8n);           // 480,000 (8%)
+
+      const piSubtotal      = piLine1Cost + piLine2Cost;         // 11,000,000
+      const piVat           = piLine1Vat + piLine2Vat;           // 980,000
+      const piTotal         = piSubtotal + piVat;                // 11,980,000
+
+      // Insert purchase invoice (draft → post after journal)
+      const piRows = await tx.insert(schema.purchaseInvoices).values({
+        companyId: sme.id,
+        partnerId: vendor.id,
+        invoiceNo: 1,
+        invoiceDate: '2026-01-12',
+        periodId: period1.id,
+        fiscalYear: 2026,
+        description: 'Mua nguyên vật liệu và hàng hóa — NCC001 (01/2026)',
+        status: 'draft',
+        nonCashPayment: true,   // ≥ VND 5,000,000 → non-cash payment condition (Law 48/2024)
+        subtotalMinor: piSubtotal,
+        vatMinor: piVat,
+        totalMinor: piTotal,
+      }).returning();
+      const pi = piRows[0]!;
+
+      // Insert purchase invoice lines
+      await tx.insert(schema.purchaseInvoiceLines).values([
+        {
+          invoiceId: pi.id,
+          companyId: sme.id,
+          lineNo: 1,
+          materialId: vt001.id,
+          quantity: piLine1Qty,
+          unitCostMinor: piLine1Unit,
+          lineCostMinor: piLine1Cost,
+          vatRuleType: 'vat_rate',
+          vatRatePct: 10,
+          vatMinor: piLine1Vat,
+          inventoryAccountCode: '152',
+        },
+        {
+          invoiceId: pi.id,
+          companyId: sme.id,
+          lineNo: 2,
+          materialId: hh001.id,
+          quantity: piLine2Qty,
+          unitCostMinor: piLine2Unit,
+          lineCostMinor: piLine2Cost,
+          // VAT reduced rate 8% through 2026-12-31 — Resolution 204/2025/QH15
+          vatRuleType: 'vat_rate_reduced',
+          vatRatePct: 8,
+          vatMinor: piLine2Vat,
+          inventoryAccountCode: '156',
+        },
+      ]);
+
+      // Post the AP journal entry:
+      //   Dr 152  5,000,000  (nguyên vật liệu nhập kho — VT001)
+      //   Dr 156  6,000,000  (hàng hóa nhập kho — HH001)
+      //   Dr 1331   980,000  (thuế GTGT đầu vào được khấu trừ)
+      //   Cr 331 11,980,000  (phải trả nhà cung cấp — NCC001)
+      //   Source: Thông tư 133/2016/TT-BTC — hạch toán mua hàng + thuế GTGT đầu vào (TK 1331)
+      //           VAS 02 — nhập kho theo giá thực tế (actual cost)
+      //           Law 48/2024/QH15 — điều kiện khấu trừ thuế GTGT đầu vào (nonCashPayment flag)
+      const e8Id = await postEntry({
+        entryNo: 8,
+        entryDate: '2026-01-12',
+        description: 'Mua NVL + hàng hóa nhập kho, ghi nhận thuế GTGT đầu vào (PI-2026-001)',
+        lines: [
+          { accountCode: '152',  debitMinor: piLine1Cost, creditMinor: 0n },
+          { accountCode: '156',  debitMinor: piLine2Cost, creditMinor: 0n },
+          { accountCode: '1331', debitMinor: piVat,       creditMinor: 0n },
+          { accountCode: '331',  debitMinor: 0n,          creditMinor: piTotal, partnerId: vendor.id },
+        ],
+      });
+
+      // Mark purchase invoice posted and link journal entry
+      await tx.execute(
+        drizzleSql`UPDATE purchase_invoices SET status = 'posted', journal_entry_id = ${e8Id}, posted_at = now() WHERE id = ${pi.id}`
+      );
+
+      // C3b. Inventory movements — goods receipt (type 'receipt')
+      //      Weighted-average receipt via receiptBalance() — VAS 02 / Circular 133
+      //      Starting balance is 0 qty / 0 value for each material (fresh seed)
+
+      // VT001 receipt: qty 100, cost 5,000,000
+      const vt001BalAfterReceipt = receiptBalance(0n, 0n, piLine1Qty, piLine1Cost);
+      // { qty: 100, value: 5,000,000 }
+      await tx.insert(schema.inventoryMovements).values({
+        companyId: sme.id,
+        materialId: vt001.id,
+        movementType: 'receipt',
+        quantity: piLine1Qty,
+        unitCostMinor: piLine1Unit,
+        totalCostMinor: piLine1Cost,
+        balanceQtyAfter: vt001BalAfterReceipt.qty,
+        balanceValueAfter: vt001BalAfterReceipt.value,
+        sourceDocType: 'purchase_invoice',
+        sourceDocId: pi.id,
+        journalEntryId: e8Id,
+        movementDate: '2026-01-12',
+        periodId: period1.id,
+      });
+
+      // HH001 receipt: qty 200, cost 6,000,000
+      const hh001BalAfterReceipt = receiptBalance(0n, 0n, piLine2Qty, piLine2Cost);
+      // { qty: 200, value: 6,000,000 }
+      await tx.insert(schema.inventoryMovements).values({
+        companyId: sme.id,
+        materialId: hh001.id,
+        movementType: 'receipt',
+        quantity: piLine2Qty,
+        unitCostMinor: piLine2Unit,
+        totalCostMinor: piLine2Cost,
+        balanceQtyAfter: hh001BalAfterReceipt.qty,
+        balanceValueAfter: hh001BalAfterReceipt.value,
+        sourceDocType: 'purchase_invoice',
+        sourceDocId: pi.id,
+        journalEntryId: e8Id,
+        movementDate: '2026-01-12',
+        periodId: period1.id,
+      });
+
+      // C4. Goods issue (Period 1): issue 50 kg VT001 → COGS at weighted-average cost
+      //     Weighted-average unit cost of VT001 = 5,000,000 / 100 = 50,000/kg
+      //     Issue qty 50 → costOut = 50/100 × 5,000,000 = 2,500,000
+      //     Basis: VAS 02 / Thông tư 133/2016/TT-BTC — phương pháp bình quân gia quyền
+      const giQty = 50n;
+      const vt001IssueResult = issueCost(
+        vt001BalAfterReceipt.qty,    // 100
+        vt001BalAfterReceipt.value,  // 5,000,000
+        giQty,                       // 50
+      );
+      // vt001IssueResult.costOut = 2,500,000; .qty = 50; .value = 2,500,000
+
+      // Insert goods issue (draft → post)
+      const giRows = await tx.insert(schema.goodsIssues).values({
+        companyId: sme.id,
+        issueNo: 1,
+        issueDate: '2026-01-20',
+        periodId: period1.id,
+        fiscalYear: 2026,
+        reason: 'consumption',
+        description: 'Xuất kho VT001 phục vụ sản xuất (GI-2026-001)',
+        status: 'draft',
+        totalCostMinor: vt001IssueResult.costOut,
+      }).returning();
+      const gi = giRows[0]!;
+
+      await tx.insert(schema.goodsIssueLines).values({
+        issueId: gi.id,
+        companyId: sme.id,
+        lineNo: 1,
+        materialId: vt001.id,
+        quantity: giQty,
+        costMinor: vt001IssueResult.costOut,
+        cogsAccountCode: '632',
+      });
+
+      // Post the COGS journal entry:
+      //   Dr 632  2,500,000  (giá vốn hàng bán / xuất kho nguyên vật liệu)
+      //   Cr 152  2,500,000  (xuất kho nguyên vật liệu)
+      //   Source: Thông tư 133/2016/TT-BTC — hạch toán giá vốn hàng xuất kho
+      //           VAS 02 — phương pháp bình quân gia quyền liên hoàn
+      const e9Id = await postEntry({
+        entryNo: 9,
+        entryDate: '2026-01-20',
+        description: 'Xuất kho nguyên vật liệu ghi nhận giá vốn — bình quân gia quyền (GI-2026-001)',
+        lines: [
+          { accountCode: '632', debitMinor: vt001IssueResult.costOut, creditMinor: 0n },
+          { accountCode: '152', debitMinor: 0n,                       creditMinor: vt001IssueResult.costOut },
+        ],
+      });
+
+      // Mark goods issue posted and link journal
+      await tx.execute(
+        drizzleSql`UPDATE goods_issues SET status = 'posted', journal_entry_id = ${e9Id}, posted_at = now() WHERE id = ${gi.id}`
+      );
+
+      // VT001 inventory movement — issue
+      const vt001BalAfterIssue = { qty: vt001IssueResult.qty, value: vt001IssueResult.value };
+      await tx.insert(schema.inventoryMovements).values({
+        companyId: sme.id,
+        materialId: vt001.id,
+        movementType: 'issue',
+        quantity: giQty,
+        unitCostMinor: vt001IssueResult.costOut / giQty,  // 50,000 per kg (exact: costOut/qty)
+        totalCostMinor: vt001IssueResult.costOut,
+        balanceQtyAfter: vt001BalAfterIssue.qty,
+        balanceValueAfter: vt001BalAfterIssue.value,
+        sourceDocType: 'goods_issue',
+        sourceDocId: gi.id,
+        journalEntryId: e9Id,
+        movementDate: '2026-01-20',
+        periodId: period1.id,
+      });
+
+      // C5. Vendor payment — partial payment of 4,000,000 VND via cash (111)
+      //     Dr 331  4,000,000  (thanh toán nhà cung cấp — NCC001)
+      //     Cr 111  4,000,000  (tiền mặt)
+      //     AP balance after: 11,980,000 − 4,000,000 = 7,980,000
+      //     Source: Thông tư 133/2016/TT-BTC — hạch toán thanh toán công nợ phải trả
+      const vpAmount = 4_000_000n;
+      const vpRows = await tx.insert(schema.vendorPayments).values({
+        companyId: sme.id,
+        partnerId: vendor.id,
+        paymentNo: 1,
+        paymentDate: '2026-01-28',
+        periodId: period1.id,
+        fiscalYear: 2026,
+        amountMinor: vpAmount,
+        settlementAccountCode: '111',
+        description: 'Thanh toán tiền mặt nhà cung cấp NCC001 — một phần PI-2026-001',
+        status: 'draft',
+      }).returning();
+      const vp = vpRows[0]!;
+
+      // Post the AP settlement journal entry:
+      //   Dr 331  4,000,000  (giảm phải trả nhà cung cấp — NCC001)
+      //   Cr 111  4,000,000  (tiền mặt thanh toán)
+      //   Source: Thông tư 133/2016/TT-BTC — thanh toán công nợ phải trả người bán
+      const e10Id = await postEntry({
+        entryNo: 10,
+        entryDate: '2026-01-28',
+        description: 'Thanh toán nhà cung cấp NCC001 (VP-2026-001)',
+        lines: [
+          { accountCode: '331', debitMinor: vpAmount, creditMinor: 0n, partnerId: vendor.id },
+          { accountCode: '111', debitMinor: 0n,       creditMinor: vpAmount },
+        ],
+      });
+
+      // Mark vendor payment posted and link journal
+      await tx.execute(
+        drizzleSql`UPDATE vendor_payments SET status = 'posted', journal_entry_id = ${e10Id}, posted_at = now() WHERE id = ${vp.id}`
+      );
+
+      // ── Phase 2b summary + reconciliation checks ──────────────────────────
+      const apBalance       = piTotal - vpAmount;                   // 11,980,000 − 4,000,000 = 7,980,000
+      const vt001OnHandQty  = vt001BalAfterIssue.qty;              // 50
+      const vt001OnHandVal  = vt001BalAfterIssue.value;             // 2,500,000
+      const hh001OnHandQty  = hh001BalAfterReceipt.qty;            // 200
+      const hh001OnHandVal  = hh001BalAfterReceipt.value;           // 6,000,000
+      const inventoryTotal  = vt001OnHandVal + hh001OnHandVal;      // 8,500,000 (TB 152+156 net)
+
+      console.log(JSON.stringify({
+        phase2b: {
+          vendor: { id: vendor.id, code: vendor.code, taxCode: vendor.taxCode },
+          materials: {
+            VT001: { id: vt001.id, onHandQty: vt001OnHandQty.toString(), onHandValue: vt001OnHandVal.toString() },
+            HH001: { id: hh001.id, onHandQty: hh001OnHandQty.toString(), onHandValue: hh001OnHandVal.toString() },
+          },
+          purchaseInvoice: {
+            id: pi.id, invoiceNo: 1,
+            subtotal: piSubtotal.toString(), vat: piVat.toString(), total: piTotal.toString(),
+            journalEntryId: e8Id,
+          },
+          goodsIssue: {
+            id: gi.id, issueNo: 1,
+            costOut: vt001IssueResult.costOut.toString(),
+            journalEntryId: e9Id,
+          },
+          vendorPayment: {
+            id: vp.id, paymentNo: 1,
+            amount: vpAmount.toString(),
+            journalEntryId: e10Id,
+          },
+          reconciliation: {
+            vendorAPBalance: apBalance.toString(),
+            apCheck: apBalance === 7_980_000n ? 'PASS — AP NCC001 = 7,980,000' : `FAIL — got ${apBalance}`,
+            vt001OnHandCheck: (vt001OnHandQty === 50n && vt001OnHandVal === 2_500_000n)
+              ? 'PASS — VT001 qty 50 / value 2,500,000'
+              : `FAIL — qty ${vt001OnHandQty} / value ${vt001OnHandVal}`,
+            hh001OnHandCheck: (hh001OnHandQty === 200n && hh001OnHandVal === 6_000_000n)
+              ? 'PASS — HH001 qty 200 / value 6,000,000'
+              : `FAIL — qty ${hh001OnHandQty} / value ${hh001OnHandVal}`,
+            inventoryTotal: inventoryTotal.toString(),
+            inventoryTotalCheck: inventoryTotal === 8_500_000n
+              ? 'PASS — inventory total (TB 152+156 net receipt) = 8,500,000'
+              : `FAIL — got ${inventoryTotal}`,
+            note: 'TB 152 net = 5,000,000 receipt − 2,500,000 issue = 2,500,000; TB 156 net = 6,000,000; sum = 8,500,000',
+          },
+        },
+      }, null, 2));
+    } else {
+      console.log('Phase 2b MM data already seeded — skipping');
     }
 
     // Summary output

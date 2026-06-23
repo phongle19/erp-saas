@@ -80,7 +80,12 @@ every AR line with its customer. `ArService` aggregates per-customer debit/credi
 so per-customer receivable balances are correct even when some customers are in credit (overpayment).
 The B01 aggregate-131 mapping limitation remains for the statement engine, but the AR sub-ledger
 (`GET /companies/:id/ar`) provides faithful per-counterparty representation.
-**TK 331 (AP) resolved in Phase 2b (Purchasing / MM).**
+
+**Phase 2b update (2026-06-23) — TK 331 resolved:** `journal_lines.partner_id` now tags every AP
+line with its vendor. `ApService` aggregates per-vendor debit/credit independently, resolving the
+331 dual-nature limitation in the same way Phase 2a resolved TK 131. The B01 aggregate-331 mapping
+limitation remains for the statement engine, but the AP sub-ledger (`GET /companies/:id/ap`) provides
+faithful per-vendor representation.
 
 ## Phase 2a known limitation — whole-unit sales quantities (logged 2026-06-23)
 
@@ -88,3 +93,28 @@ The B01 aggregate-131 mapping limitation remains for the statement engine, but t
 (e.g. 0.5 kg of goods, 2.5 consulting hours) are not yet supported. To resolve later: store a
 scaled-integer quantity (with an explicit scale) so line net stays bigint-exact, and round the
 extended amount with an explicit rule — never use float for the quantity × price product.
+
+## Phase 2b known limitations (logged 2026-06-23)
+
+1. **PO/quotation/approval workflow not implemented** — the procure-to-pay flow goes directly from
+   vendor invoice to goods receipt without a purchase order. A PO approval workflow (requisition →
+   PO → GR → invoice matching / 3-way match) is deferred to a future phase.
+
+2. **Warehouse / bin location not modelled** — `inventory_movements` has no bin or warehouse
+   dimension. Multi-location inventory tracking is deferred.
+
+3. **FIFO method not supported** — only the perpetual weighted-average method (VAS 02,
+   Thông tư 133) is implemented. FIFO costing would require tracking individual receipt lots;
+   deferred to a future phase.
+
+4. **Purchase invoice cancellation / inventory value-restoration caveat** — cancelling a posted
+   purchase invoice is fully automated: `PurchaseInvoiceService.cancel()`
+   (`apps/api/src/purchasing/purchase-invoice.service.ts`) posts a reversing journal entry
+   (Dr 331 / Cr 152 or 156 / Cr 1331) AND reverses the inventory movement per line via
+   `InventoryService.applyReversal()` (proven by `apps/api/test/purchase-invoice.int.test.ts`).
+   The remaining limitation is value restoration, not automation: `applyReversal` is best-effort.
+   If intervening goods issues drew the material's on-hand balance below the originally received
+   quantity, removing the original receipt's quantity and value can over- or under-shoot the
+   moving-average value (and the reversal is not guarded against driving the balance negative).
+   Exact-value restatement requires a restitution/restatement engine that replays movements at
+   their correct post-reversal moving averages; that is deferred to a future phase.

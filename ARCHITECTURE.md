@@ -240,8 +240,14 @@ limitation tracked in `docs/open-questions.md`.
 `ArService` aggregates per-customer debit/credit independently, so a credit balance on 131
 for one customer is visible without being masked by debit balances of others. The aggregate
 B01 mapping limitation remains (the statement engine still uses the net 131 balance), but
-the AR sub-ledger provides faithful per-customer representation. TK 331 (AP) resolution
-follows in Phase 2b (Purchasing / MM).
+the AR sub-ledger provides faithful per-customer representation.
+
+**Phase 2b update:** TK 331 (AP) is now resolved in the same way as TK 131. Every AP line carries
+its vendor via `journal_lines.partner_id`, and `ApService` aggregates per-vendor debit/credit
+independently, so a debit (advance) balance on 331 for one vendor is visible without being masked
+by credit balances of others. The AP sub-ledger (`GET /companies/:id/ap`) reconciles to the Trial
+Balance TK 331. As with 131, the aggregate B01 mapping limitation remains for the statement engine,
+but the sub-ledger provides faithful per-vendor representation.
 
 ---
 
@@ -310,6 +316,79 @@ invariants at the DB level:
 
 Regulatory sources: Decree 123/2020/ND-CP; Circular 78/2021/TT-BTC; GDT XML schema
 1450/QĐ-TCT; Decree 70/2025/ND-CP (amended).
+
+---
+
+## Materials Management (Phase 2b)
+
+### Weighted-average inventory engine
+
+`packages/domain/src/inventory.ts` provides two pure functions that implement the
+perpetual weighted-average (moving-average) method mandated by VAS 02 /
+Thông tư 133/2016/TT-BTC, Điều 14:
+
+- **`receiptBalance(prevQty, prevValue, q, cost)`** — adds q units at total cost `cost`.
+  Returns `{ qty: prevQty + q, value: prevValue + cost }`. The weighted-average unit cost
+  is always derived on-demand (`value / qty`) and never stored as a fraction, keeping
+  everything integer-exact and reconcilable to the GL balance of the inventory account.
+
+- **`issueCost(prevQty, prevValue, q)`** — removes q units at the current
+  weighted-average cost. Returns `{ costOut, qty, value }`. Uses integer
+  multiply-then-divide with HALF_UP rounding (`applyRate`). If q equals prevQty (entire
+  stock), the full remaining value is taken, clearing it to exactly 0n — this prevents
+  penny-rounding drift accumulating across many sequential issues.
+
+**Monotonic seq column:** `inventory_movements.seq` is a `bigserial`, providing a
+strict insertion-order key independent of `created_at` clock skew. Combined with an
+advisory lock in `InventoryService.applyReceipt` / `applyIssue`, it prevents
+concurrent movements from racing and producing incorrect balances.
+
+### Procure-to-pay posting
+
+`PurchaseInvoiceService` (`apps/api/src/purchasing/purchase-invoice.service.ts`) handles
+the full purchase invoice lifecycle:
+
+1. Validate period open; resolve effective-dated input-VAT rate via `findEffectiveRule`.
+2. Compute line cost + VAT with bigint helpers (`lineNet`, `vatFor`) — no floats.
+3. Insert `purchase_invoices` (draft) + `purchase_invoice_lines` with `vatRuleType`,
+   `vatRatePct`, `inventoryAccountCode` stored per line for audit trail.
+4. Post GL entry via `DocumentPostingService`:
+   **Dr 156 (or 152) / Dr 1331 / Cr 331** with `partner_id` on the 331 line.
+5. Create `inventory_movements` (type `'receipt'`) via `InventoryService.applyReceipt`,
+   updating the weighted-average balance.
+6. Mark invoice `posted`.
+
+Non-cash payment condition: `purchase_invoices.non_cash_payment` flag must be `true`
+for input-VAT deductibility on invoices ≥ VND 5,000,000 (Law 48/2024/QH15, effective
+2025-07-01; Decree 181/2025).
+
+### Goods issue — COGS at weighted-average
+
+`GoodsIssueService` (`apps/api/src/purchasing/goods-issue.service.ts`) calls
+`issueCost(prevQty, prevValue, q)` for bigint-exact COGS, then posts:
+**Dr 632 / Cr 156 (or 152)** at the computed cost. The `inventory_movements` row
+(type `'issue'`) records `totalCostMinor`, `balanceQtyAfter`, `balanceValueAfter` —
+the on-hand balance after issue is the authoritative source for inventory reconciliation
+to the Trial Balance.
+
+### AP sub-ledger and the `partner_id` dimension
+
+The same `journal_lines.partner_id` mechanism used for AR (TK 131, Phase 2a) applies
+to AP (TK 331, Phase 2b). Every AP posting carries the vendor id on the 331 control
+account line. `ApService` (`apps/api/src/purchasing/ap.service.ts`) aggregates
+`SUM(debit_minor)` and `SUM(credit_minor)` from `journal_lines` filtered by
+`account_code LIKE '331%'` and grouped by `partner_id`. Per-vendor outstanding (credit)
+and advance positions (debit) are visible without conflating vendors. The per-vendor net
+reconciles to the Trial Balance TK 331 aggregate.
+
+This resolves the Phase-1 known limitation for TK 331 (dual-nature accounts):
+the AP sub-ledger provides faithful per-vendor representation, identical in design to
+the AR sub-ledger that resolved TK 131 in Phase 2a.
+
+**Inventory ↔ GL reconciliation:** `inventory_movements.balanceValueAfter` for the
+latest movement of each material reconciles to the GL balance of its inventory account
+(TK 152 for raw materials, TK 156 for merchandise). Both are read-only aggregations
+over the same set of posted journal entries, so they always agree.
 
 ---
 

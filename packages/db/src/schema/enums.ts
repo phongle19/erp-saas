@@ -14,3 +14,5 @@ export const partnerType = pgEnum('partner_type', ['customer', 'vendor', 'both']
 export const salesDocStatus = pgEnum('sales_doc_status', ['draft', 'posted', 'cancelled']);
 export const einvoiceStatus = pgEnum('einvoice_status', ['pending', 'issued', 'failed', 'cancelled']);
 export const einvoiceProvider = pgEnum('einvoice_provider', ['viettel', 'vnpt', 'misa']);
+export const movementType = pgEnum('movement_type', ['receipt', 'issue']);
+export const goodsIssueReason = pgEnum('goods_issue_reason', ['sale', 'consumption', 'adjustment']);
