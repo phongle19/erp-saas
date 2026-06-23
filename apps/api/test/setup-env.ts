@@ -58,6 +58,10 @@ const superuserUrl =
 // setupFile's module evaluation before importing any test module, so the worker
 // DB exists and DATABASE_URL is set before make-app.ts imports AppModule.
 async function prepareWorkerDatabase(): Promise<void> {
+  // Short-lived superuser connection, closed promptly so it does not count
+  // against `max_connections` while the worker's app pools are open. `max: 1`
+  // plus an awaited end() (below) keeps the superuser footprint to one transient
+  // connection per worker.
   const su = postgres(superuserUrl, { max: 1, onnotice: () => {} });
   try {
     const existing = await su`SELECT 1 FROM pg_database WHERE datname = ${dbName}`;
@@ -66,21 +70,51 @@ async function prepareWorkerDatabase(): Promise<void> {
         // CREATE DATABASE cannot be parameterized; dbName is validated above.
         await su.unsafe(`CREATE DATABASE "${dbName}" OWNER erp`);
       } catch (err: unknown) {
-        // 42P04 = duplicate_database: another worker won the race. Benign.
+        // 42P04 = duplicate_database: another worker won the race. Benign —
+        // the DB exists, which is all we need. Anything else is fatal.
         const code = (err as { code?: string })?.code;
         if (code !== '42P04') throw err;
       }
     }
   } finally {
+    // Close the superuser connection PROMPTLY — before the worker's app opens its
+    // own pools — so it never contends for a connection slot under heavy forking.
     await su.end({ timeout: 5 });
   }
 }
 
-await prepareWorkerDatabase();
-
-// Point the app at the per-worker DB with the `erp` (NOBYPASSRLS) creds, so RLS
-// is actually enforced. Override unconditionally — this must win over any
-// pre-existing DATABASE_URL so every worker uses its own database.
+// The per-worker DB the app must use, with `erp` (NOBYPASSRLS) creds so RLS is
+// actually enforced. Set this on process.env UNCONDITIONALLY and EARLY — even if
+// DB preparation below throws — so a worker never silently falls back to the
+// shared base DB or leaves DATABASE_URL unset (which would make a whole test file
+// skip). If the DB turns out to be unreachable we fail loudly instead.
 const workerUrl = `postgres://erp:erp@${base.host}:${base.port}/${dbName}`;
 process.env.DATABASE_URL = workerUrl;
 process.env.TEST_DATABASE_URL = workerUrl;
+
+// Bound per-worker pool sizes so total connections (forks × pools-per-worker ×
+// max) stay under Postgres `max_connections`. The app opens several pools per
+// worker (tenant-tx, auth, session) plus the test rawSql handle; with the small
+// default here and maxForks capped in vitest.config.ts the suite stays well
+// under the 100-connection default. Allow an explicit override.
+process.env.DB_POOL_MAX = process.env.DB_POOL_MAX ?? '5';
+
+await prepareWorkerDatabase();
+
+// Defence-in-depth: confirm the per-worker DB is actually reachable as the `erp`
+// role before any test module loads. If the superuser CREATE DATABASE silently
+// failed (or the race-handling masked a real error), this surfaces it as a clear,
+// immediate failure for THIS worker instead of a confusing downstream skip.
+{
+  const probe = postgres(workerUrl, { max: 1, onnotice: () => {} });
+  try {
+    await probe`SELECT 1`;
+  } catch (err) {
+    throw new Error(
+      `setup-env: per-worker database "${dbName}" is not reachable as the erp role ` +
+        `at ${base.host}:${base.port}. Original error: ${(err as Error).message}`,
+    );
+  } finally {
+    await probe.end({ timeout: 5 });
+  }
+}

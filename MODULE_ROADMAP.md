@@ -124,7 +124,7 @@ Everything listed here is shipped, tested, and green in CI.
   deductibility condition. Sources: Law on VAT 48/2024/QH15; Resolution 204/2025/QH15;
   Decree 181/2025.
 - **Goods issue — COGS at weighted-average cost:** `GoodsIssueService`
-  (`apps/api/src/inventory/goods-issue.service.ts`) calls `issueCost` for bigint-exact
+  (`apps/api/src/purchasing/goods-issue.service.ts`) calls `issueCost` for bigint-exact
   COGS computation, posts **Dr 632 / Cr 156 (or 152)**, records inventory issue movement
   with updated balance. Basis: VAS 02; Thông tư 133/2016/TT-BTC.
 - **AP sub-ledger (TK 331) by vendor — resolves the 331 dual-nature limitation:**

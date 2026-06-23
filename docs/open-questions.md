@@ -107,8 +107,14 @@ extended amount with an explicit rule — never use float for the quantity × pr
    Thông tư 133) is implemented. FIFO costing would require tracking individual receipt lots;
    deferred to a future phase.
 
-4. **Purchase invoice cancellation / inventory reversal caveat** — cancelling a posted purchase
-   invoice creates a reversing journal entry (Dr 331 / Cr 152 or 156 / Cr 1331), but the
-   inventory-movement reversal (negative-quantity issue at the original receipt cost) is not yet
-   automated. A manual inventory-adjustment goods issue must be posted to keep the `inventory_movements`
-   balance consistent with the GL. This is a known gap in the cancellation flow.
+4. **Purchase invoice cancellation / inventory value-restoration caveat** — cancelling a posted
+   purchase invoice is fully automated: `PurchaseInvoiceService.cancel()`
+   (`apps/api/src/purchasing/purchase-invoice.service.ts`) posts a reversing journal entry
+   (Dr 331 / Cr 152 or 156 / Cr 1331) AND reverses the inventory movement per line via
+   `InventoryService.applyReversal()` (proven by `apps/api/test/purchase-invoice.int.test.ts`).
+   The remaining limitation is value restoration, not automation: `applyReversal` is best-effort.
+   If intervening goods issues drew the material's on-hand balance below the originally received
+   quantity, removing the original receipt's quantity and value can over- or under-shoot the
+   moving-average value (and the reversal is not guarded against driving the balance negative).
+   Exact-value restatement requires a restitution/restatement engine that replays movements at
+   their correct post-reversal moving averages; that is deferred to a future phase.

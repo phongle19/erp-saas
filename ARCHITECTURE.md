@@ -240,8 +240,14 @@ limitation tracked in `docs/open-questions.md`.
 `ArService` aggregates per-customer debit/credit independently, so a credit balance on 131
 for one customer is visible without being masked by debit balances of others. The aggregate
 B01 mapping limitation remains (the statement engine still uses the net 131 balance), but
-the AR sub-ledger provides faithful per-customer representation. TK 331 (AP) resolution
-follows in Phase 2b (Purchasing / MM).
+the AR sub-ledger provides faithful per-customer representation.
+
+**Phase 2b update:** TK 331 (AP) is now resolved in the same way as TK 131. Every AP line carries
+its vendor via `journal_lines.partner_id`, and `ApService` aggregates per-vendor debit/credit
+independently, so a debit (advance) balance on 331 for one vendor is visible without being masked
+by credit balances of others. The AP sub-ledger (`GET /companies/:id/ap`) reconciles to the Trial
+Balance TK 331. As with 131, the aggregate B01 mapping limitation remains for the statement engine,
+but the sub-ledger provides faithful per-vendor representation.
 
 ---
 
@@ -358,7 +364,7 @@ for input-VAT deductibility on invoices ≥ VND 5,000,000 (Law 48/2024/QH15, eff
 
 ### Goods issue — COGS at weighted-average
 
-`GoodsIssueService` (`apps/api/src/inventory/goods-issue.service.ts`) calls
+`GoodsIssueService` (`apps/api/src/purchasing/goods-issue.service.ts`) calls
 `issueCost(prevQty, prevValue, q)` for bigint-exact COGS, then posts:
 **Dr 632 / Cr 156 (or 152)** at the computed cost. The `inventory_movements` row
 (type `'issue'`) records `totalCostMinor`, `balanceQtyAfter`, `balanceValueAfter` —
