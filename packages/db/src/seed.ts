@@ -74,20 +74,47 @@ async function main() {
 
     // Effective-dated tax rules
     // Note: effectiveTo is EXCLUSIVE — 8% reduced rate through 2026-12-31 => effectiveTo '2027-01-01'
+    // VAT rates — Law on VAT 48/2024/QH15 + Resolution 204/2025/QH15
     await tx.insert(schema.taxRules).values([
       {
+        // Standard VAT 10% — Luật Thuế GTGT (Law on VAT) 48/2024/QH15, Điều 8.1
         ruleType: 'vat_rate',
         value: '10',
         effectiveFrom: '2014-01-01',
         effectiveTo: null,
-        sourceRegulation: 'Law on VAT',
+        sourceRegulation: 'Law on VAT 48/2024/QH15',
       },
       {
+        // Reduced VAT 8% through 2026-12-31 — Nghị quyết 204/2025/QH15
         ruleType: 'vat_rate_reduced',
         value: '8',
         effectiveFrom: '2025-01-01',
         effectiveTo: '2027-01-01',
         sourceRegulation: 'Resolution 204/2025/QH15',
+      },
+      {
+        // Reduced VAT 5% (essential goods/services) — Luật Thuế GTGT 48/2024/QH15, Điều 8.2
+        ruleType: 'vat_rate_5',
+        value: '5',
+        effectiveFrom: '2014-01-01',
+        effectiveTo: null,
+        sourceRegulation: 'Law on VAT 48/2024/QH15',
+      },
+      {
+        // Zero-rate VAT (exports, etc.) — Luật Thuế GTGT 48/2024/QH15, Điều 8.3
+        ruleType: 'vat_zero',
+        value: '0',
+        effectiveFrom: '2014-01-01',
+        effectiveTo: null,
+        sourceRegulation: 'Law on VAT 48/2024/QH15',
+      },
+      {
+        // VAT-exempt goods/services — Luật Thuế GTGT 48/2024/QH15, Điều 5
+        ruleType: 'vat_exempt',
+        value: '0',
+        effectiveFrom: '2014-01-01',
+        effectiveTo: null,
+        sourceRegulation: 'Law on VAT 48/2024/QH15',
       },
       {
         ruleType: 'input_vat_noncash_threshold',

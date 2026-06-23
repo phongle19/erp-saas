@@ -242,3 +242,53 @@ CREATE TRIGGER jl_immutable
 CREATE INDEX IF NOT EXISTS journal_lines_company_account_idx ON journal_lines (company_id, account_id);
 CREATE INDEX IF NOT EXISTS journal_lines_entry_idx ON journal_lines (entry_id);
 CREATE INDEX IF NOT EXISTS journal_entries_company_fy_idx ON journal_entries (company_id, fiscal_year);
+
+-- =====================================================================
+-- Phase 2a Task A2: sales/AR/e-invoice RLS + indexes
+-- =====================================================================
+
+-- business_partners: scoped by company_id
+ALTER TABLE business_partners ENABLE ROW LEVEL SECURITY;
+ALTER TABLE business_partners FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS business_partners_access ON business_partners;
+CREATE POLICY business_partners_access ON business_partners
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- sales_invoices: scoped by company_id
+ALTER TABLE sales_invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales_invoices FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sales_invoices_access ON sales_invoices;
+CREATE POLICY sales_invoices_access ON sales_invoices
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- sales_invoice_lines: scoped by company_id (denormalised for RLS parity with journal_lines)
+ALTER TABLE sales_invoice_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales_invoice_lines FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sales_invoice_lines_access ON sales_invoice_lines;
+CREATE POLICY sales_invoice_lines_access ON sales_invoice_lines
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- customer_receipts: scoped by company_id
+ALTER TABLE customer_receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_receipts FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS customer_receipts_access ON customer_receipts;
+CREATE POLICY customer_receipts_access ON customer_receipts
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- einvoices: scoped by company_id
+ALTER TABLE einvoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE einvoices FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS einvoices_access ON einvoices;
+CREATE POLICY einvoices_access ON einvoices
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- Performance indexes (idempotent)
+CREATE INDEX IF NOT EXISTS sales_invoices_company_partner_idx ON sales_invoices (company_id, partner_id);
+CREATE INDEX IF NOT EXISTS customer_receipts_company_partner_idx ON customer_receipts (company_id, partner_id);
+CREATE INDEX IF NOT EXISTS journal_lines_company_partner_idx ON journal_lines (company_id, partner_id);
+CREATE INDEX IF NOT EXISTS einvoices_sales_invoice_idx ON einvoices (sales_invoice_id);

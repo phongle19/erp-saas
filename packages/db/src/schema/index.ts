@@ -7,4 +7,6 @@ export * from './coa.js';
 export * from './rules.js';
 export * from './audit.js';
 export * from './periods.js';
+export * from './sales.js';
 export * from './journals.js';
+export * from './einvoices.js';

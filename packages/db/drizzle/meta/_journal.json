@@ -15,6 +15,13 @@
       "when": 1782157399420,
       "tag": "0001_furry_ikaris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782178218788,
+      "tag": "0002_rainy_hellcat",
+      "breakpoints": true
     }
   ]
 }
