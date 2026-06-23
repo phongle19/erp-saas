@@ -1,0 +1,2 @@
+ALTER TABLE "sales_invoice_lines" ADD CONSTRAINT "sales_invoice_line_no_uq" UNIQUE("invoice_id","line_no");--> statement-breakpoint
+ALTER TABLE "einvoices" ADD CONSTRAINT "einvoice_serial_uq" UNIQUE("company_id","mau_so","ky_hieu","so_hoa_don");

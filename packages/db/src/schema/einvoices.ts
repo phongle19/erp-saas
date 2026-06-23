@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, bigint, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, bigint, jsonb, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { einvoiceStatus, einvoiceProvider } from './enums.js';
 import { companies } from './companies.js';
@@ -26,4 +26,9 @@ export const einvoices = pgTable('einvoices', {
   issuedAt: timestamp('issued_at', { withTimezone: true }),
   payload: jsonb('payload'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => ({
+  // Decree 123/2020/ND-CP: an issued e-invoice serial (mẫu số + ký hiệu + số) is unique per
+  // taxpayer. NULLs are distinct in Postgres, so multiple 'pending' rows (null số) are allowed;
+  // uniqueness only bites once a number is assigned at issue.
+  serialUq: unique('einvoice_serial_uq').on(t.companyId, t.mauSo, t.kyHieu, t.soHoaDon),
+}));

@@ -51,7 +51,7 @@ export const salesInvoiceLines = pgTable('sales_invoice_lines', {
   vatRatePct: integer('vat_rate_pct').notNull(),  // resolved percent, stored for audit trail
   vatMinor: bigint('vat_minor', { mode: 'bigint' }).notNull(),
   revenueAccountCode: text('revenue_account_code').notNull().default('511'),
-});
+}, (t) => ({ uq: unique('sales_invoice_line_no_uq').on(t.invoiceId, t.lineNo) }));
 
 export const customerReceipts = pgTable('customer_receipts', {
   id: uuid('id').primaryKey().defaultRandom(),

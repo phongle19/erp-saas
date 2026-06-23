@@ -78,3 +78,10 @@ subtraction, and the post-closing balance-sheet identity are all correct.
 **Mitigation now:** the demo/tests avoid 131/331 (cash sales via 111). **To resolve later:** add an
 accounts-receivable/payable sub-ledger and split each control account into its debit and credit
 components before mapping to B01 (a Phase 2 SD/MM concern).
+
+## Phase 2a known limitation — whole-unit sales quantities (logged 2026-06-23)
+
+`sales_invoice_lines.quantity` is a `bigint` (whole units) in Phase 2a. Fractional quantities
+(e.g. 0.5 kg of goods, 2.5 consulting hours) are not yet supported. To resolve later: store a
+scaled-integer quantity (with an explicit scale) so line net stays bigint-exact, and round the
+extended amount with an explicit rule — never use float for the quantity × price product.

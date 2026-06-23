@@ -22,6 +22,13 @@
       "when": 1782178218788,
       "tag": "0002_rainy_hellcat",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1782178639852,
+      "tag": "0003_remarkable_blink",
+      "breakpoints": true
     }
   ]
 }
