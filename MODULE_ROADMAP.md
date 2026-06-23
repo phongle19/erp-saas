@@ -104,12 +104,51 @@ Everything listed here is shipped, tested, and green in CI.
 
 ---
 
-## Phase 2b — Purchasing (MM) (PLANNED)
+## Phase 2b — Purchasing (MM): procure-to-pay + weighted-avg inventory + AP (DONE)
 
-AP sub-ledger, purchase orders, goods receipts, vendor invoices. Inventory costing:
-weighted-average method (Thông tư 200, Circular 133 and 88 variants). GR/IR clearing.
-TK 331 (Phải trả người bán) sub-ledger via `partner_id` on journal lines (same pattern
-as 131 in Phase 2a).
+Everything listed here is shipped, tested, and green in CI.
+
+- **Material master (`materials`):** code, name, unit, inventory-account code (152 for raw
+  materials / 156 for merchandise), RLS-isolated per company. CRUD at `GET|POST /materials`,
+  `GET|PATCH /materials/:id`.
+- **Weighted-average inventory engine:** `receiptBalance` and `issueCost` domain helpers
+  (`packages/domain/src/inventory.ts`) compute bigint-exact on-hand qty and value with the
+  perpetual weighted-average (moving-average) method. No float arithmetic, no rounding drift —
+  issuing the entire remaining qty takes the whole remaining value. Basis: VAS 02;
+  Thông tư 133/2016/TT-BTC, Điều 14.
+- **Purchase invoice — goods receipt + input VAT + AP:** `PurchaseInvoiceService`
+  (`apps/api/src/purchasing/purchase-invoice.service.ts`) resolves effective-dated input-VAT
+  rates, computes line cost + VAT with bigint helpers, posts **Dr 156/152 + Dr 1331 / Cr 331**
+  with `partner_id` on the 331 line, records inventory receipt movements. The
+  `nonCashPayment` flag on `purchase_invoices` enforces the ≥ VND 5,000,000 non-cash
+  deductibility condition. Sources: Law on VAT 48/2024/QH15; Resolution 204/2025/QH15;
+  Decree 181/2025.
+- **Goods issue — COGS at weighted-average cost:** `GoodsIssueService`
+  (`apps/api/src/inventory/goods-issue.service.ts`) calls `issueCost` for bigint-exact
+  COGS computation, posts **Dr 632 / Cr 156 (or 152)**, records inventory issue movement
+  with updated balance. Basis: VAS 02; Thông tư 133/2016/TT-BTC.
+- **AP sub-ledger (TK 331) by vendor — resolves the 331 dual-nature limitation:**
+  `ApService` (`apps/api/src/purchasing/ap.service.ts`) aggregates `journal_lines` by
+  `partner_id` on 331-account lines, giving per-vendor outstanding (credit) and advance
+  (debit) positions without conflating vendors. Reconciles to Trial Balance TK 331
+  aggregate. Same design as AR sub-ledger for TK 131 (Phase 2a).
+- **Vendor payments settling AP:** `VendorPaymentsService` posts **Dr 331 / Cr 111 (or 112)**
+  with `partner_id`, reducing the vendor's AP balance. `vendor_payments` table records
+  settlement account, amount, period, and journal entry reference.
+- **Demo seed:** 1 vendor (NCC001 Công ty TNHH Vật tư Hà Nội); 2 materials (VT001
+  nguyên vật liệu A, HH001 hàng hóa B); 1 posted purchase invoice (100 kg VT001 @
+  50,000 + 200 cái HH001 @ 30,000, input VAT 10%/8%, total 11,980,000); 1 goods issue
+  (50 kg VT001 COGS = 2,500,000 at weighted-avg); 1 partial vendor payment (4,000,000).
+  VT001 on-hand: qty 50 / value 2,500,000; HH001 on-hand: qty 200 / value 6,000,000;
+  vendor AP balance NCC001 = 7,980,000.
+- **Read-only web UI:** materials list/detail, purchase invoices list/detail with VAT and
+  inventory impact, goods issues, AP aging by vendor. Source:
+  `apps/web/src/app/[locale]/companies/[id]/purchasing/`.
+- **RLS extended to MM:** `materials`, `inventory_movements`, `purchase_invoices`,
+  `purchase_invoice_lines`, `goods_issues`, `goods_issue_lines`, `vendor_payments` all
+  covered by FORCE RLS; e2e access-isolation tests prove cross-company isolation.
+
+**Remaining in later phases:** 2c Cash/Bank reconciliation, 2d Fixed Assets.
 
 ## Phase 2c — Cash / Bank (PLANNED)
 
