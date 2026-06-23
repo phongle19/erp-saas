@@ -43,6 +43,7 @@ export default async function CompaniesPage({ params }: Props) {
   setRequestLocale(locale);
   const t = await getTranslations("companies");
   const tReports = await getTranslations("reports");
+  const tSales = await getTranslations("sales");
   const companies = await fetchCompanies();
 
   return (
@@ -57,6 +58,9 @@ export default async function CompaniesPage({ params }: Props) {
               <strong>{c.name}</strong> — {safeRegimeLabel(c.regime)} ({c.functionalCurrency}){" "}
               <Link href={`/${locale}/companies/${c.id}/reports`}>
                 [{tReports("reports")}]
+              </Link>{" "}
+              <Link href={`/${locale}/companies/${c.id}/sales`}>
+                [{tSales("sales")}]
               </Link>
             </li>
           ))}

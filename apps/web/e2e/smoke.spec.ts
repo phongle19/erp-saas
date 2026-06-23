@@ -83,3 +83,35 @@ test("reports income-statement: /vi/companies/test-id/reports/income-statement r
     timeout: 15_000,
   });
 });
+
+// Sales routes: server-component fetches fail gracefully when API is offline
+// so the pages still render their Vietnamese headings and "no data" empty-states.
+test("sales customers: /vi/companies/test-id/sales/customers renders heading and no-data", async ({
+  page,
+}) => {
+  const response = await page.goto("/vi/companies/test-id/sales/customers");
+  expect(response, "page.goto returned no response").not.toBeNull();
+  expect(response!.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", { name: "Khách hàng", exact: true })
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Không có dữ liệu")).toBeVisible({
+    timeout: 15_000,
+  });
+});
+
+test("sales ar: /vi/companies/test-id/sales/ar renders heading and no-data", async ({
+  page,
+}) => {
+  const response = await page.goto(
+    "/vi/companies/test-id/sales/ar?fiscalYear=2025&through=12"
+  );
+  expect(response, "page.goto returned no response").not.toBeNull();
+  expect(response!.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", { name: "Công nợ phải thu" })
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Không có dữ liệu")).toBeVisible({
+    timeout: 15_000,
+  });
+});
