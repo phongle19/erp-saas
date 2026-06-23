@@ -6,6 +6,8 @@ import { MaterialsService } from './materials.service.js';
 import { MaterialsController } from './materials.controller.js';
 import { PurchaseInvoiceService } from '../purchasing/purchase-invoice.service.js';
 import { PurchaseInvoiceController } from '../purchasing/purchase-invoice.controller.js';
+import { GoodsIssueService } from '../purchasing/goods-issue.service.js';
+import { GoodsIssueController } from '../purchasing/goods-issue.controller.js';
 
 /**
  * MmModule (Materials Management) — Phase 2b.
@@ -23,7 +25,10 @@ import { PurchaseInvoiceController } from '../purchasing/purchase-invoice.contro
  *   input VAT + AP). Imports DocumentsModule for the PostingEngine; injects
  *   InventoryService for the weighted-average receipt inside the same request tx.
  *
- * B6–B8 services/controllers will be added here as they are implemented.
+ * B6: GoodsIssueService/Controller — goods issue (COGS at weighted-average cost).
+ *   Dr 632 / Cr 156/152; over-issue rejected (422) with atomic rollback.
+ *
+ * B7–B8 services/controllers will be added here as they are implemented.
  */
 @Module({
   imports: [DocumentsModule],
@@ -31,8 +36,9 @@ import { PurchaseInvoiceController } from '../purchasing/purchase-invoice.contro
     InventoryController,
     MaterialsController,
     PurchaseInvoiceController,
+    GoodsIssueController,
   ],
-  providers: [InventoryService, MaterialsService, PurchaseInvoiceService],
-  exports: [InventoryService, MaterialsService, PurchaseInvoiceService],
+  providers: [InventoryService, MaterialsService, PurchaseInvoiceService, GoodsIssueService],
+  exports: [InventoryService, MaterialsService, PurchaseInvoiceService, GoodsIssueService],
 })
 export class MmModule {}
