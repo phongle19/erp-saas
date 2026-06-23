@@ -292,3 +292,69 @@ CREATE INDEX IF NOT EXISTS sales_invoices_company_partner_idx ON sales_invoices 
 CREATE INDEX IF NOT EXISTS customer_receipts_company_partner_idx ON customer_receipts (company_id, partner_id);
 CREATE INDEX IF NOT EXISTS journal_lines_company_partner_idx ON journal_lines (company_id, partner_id);
 CREATE INDEX IF NOT EXISTS einvoices_sales_invoice_idx ON einvoices (sales_invoice_id);
+
+-- =====================================================================
+-- Phase 2b Task B2: MM (inventory + purchasing) RLS + indexes
+-- =====================================================================
+
+-- materials: scoped by company_id
+ALTER TABLE materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE materials FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS materials_access ON materials;
+CREATE POLICY materials_access ON materials
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- inventory_movements: scoped by company_id
+ALTER TABLE inventory_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory_movements FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS inventory_movements_access ON inventory_movements;
+CREATE POLICY inventory_movements_access ON inventory_movements
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- purchase_invoices: scoped by company_id
+ALTER TABLE purchase_invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_invoices FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS purchase_invoices_access ON purchase_invoices;
+CREATE POLICY purchase_invoices_access ON purchase_invoices
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- purchase_invoice_lines: scoped by company_id (denormalised for RLS parity)
+ALTER TABLE purchase_invoice_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_invoice_lines FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS purchase_invoice_lines_access ON purchase_invoice_lines;
+CREATE POLICY purchase_invoice_lines_access ON purchase_invoice_lines
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- goods_issues: scoped by company_id
+ALTER TABLE goods_issues ENABLE ROW LEVEL SECURITY;
+ALTER TABLE goods_issues FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS goods_issues_access ON goods_issues;
+CREATE POLICY goods_issues_access ON goods_issues
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- goods_issue_lines: scoped by company_id (denormalised for RLS parity)
+ALTER TABLE goods_issue_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE goods_issue_lines FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS goods_issue_lines_access ON goods_issue_lines;
+CREATE POLICY goods_issue_lines_access ON goods_issue_lines
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- vendor_payments: scoped by company_id
+ALTER TABLE vendor_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vendor_payments FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS vendor_payments_access ON vendor_payments;
+CREATE POLICY vendor_payments_access ON vendor_payments
+  USING (app_is_admin() OR company_id = ANY(app_accessible_companies()))
+  WITH CHECK (app_is_admin() OR company_id = ANY(app_accessible_companies()));
+
+-- Performance indexes (idempotent)
+CREATE INDEX IF NOT EXISTS purchase_invoices_company_partner_idx ON purchase_invoices (company_id, partner_id);
+CREATE INDEX IF NOT EXISTS vendor_payments_company_partner_idx ON vendor_payments (company_id, partner_id);
+CREATE INDEX IF NOT EXISTS goods_issue_lines_company_material_idx ON goods_issue_lines (company_id, material_id);
+CREATE INDEX IF NOT EXISTS purchase_invoice_lines_company_material_idx ON purchase_invoice_lines (company_id, material_id);

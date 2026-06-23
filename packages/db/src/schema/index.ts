@@ -10,3 +10,5 @@ export * from './periods.js';
 export * from './sales.js';
 export * from './journals.js';
 export * from './einvoices.js';
+export * from './inventory.js';
+export * from './purchasing.js';
