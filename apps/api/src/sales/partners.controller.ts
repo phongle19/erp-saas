@@ -13,13 +13,13 @@ import { AuthGuard } from '../access/rbac.guard.js';
 import { PartnersService } from './partners.service.js';
 
 const CreatePartnerSchema = z.object({
-  code: z.string().min(1).max(50),
-  name: z.string().min(1),
-  taxCode: z.string().optional(),
+  code: z.string().trim().min(1).max(50),
+  name: z.string().trim().min(1),
+  taxCode: z.string().trim().max(20).optional(),
   partnerType: z.enum(['customer', 'vendor', 'both']).optional(),
-  address: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
+  address: z.string().trim().optional(),
+  email: z.string().trim().email().optional(),
+  phone: z.string().trim().max(30).optional(),
 });
 
 @Controller()
