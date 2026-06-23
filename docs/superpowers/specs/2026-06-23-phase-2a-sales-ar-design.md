@@ -103,9 +103,13 @@ receivable). Phase 2a settles on-account (FIFO/explicit allocation deferred — 
 ## 6. E-invoice domain + provider interface (stub)
 
 - An `EInvoiceProvider` interface: `issue(einvoice): Promise<{ providerCode; soHoaDon; status;
-  gdtMessageId? }>` and `cancel(providerCode): Promise<...>`. A **`StubEInvoiceProvider`** returns
-  a generated code + sequential number (no network), so the flow is exercised end-to-end without a
-  live provider (Viettel/VNPT/MISA chosen later — open question).
+  gdtMessageId? }>` and `cancel(providerCode): Promise<...>`.
+- **Provider is selectable (not hardcoded):** a provider **registry** keyed by provider id
+  (`viettel` | `vnpt` | `misa`), and a per-company/owner config field choosing the active
+  provider. Phase 2a ships **stub implementations for Viettel, VNPT, and MISA** (each returns a
+  generated code + sequential number, no network) so the selection mechanism is real and the flow
+  is exercised end-to-end without live transmission. A live HTTP implementation drops in behind the
+  same interface in a later phase.
 - Issuing a **posted** sales invoice creates an `einvoices` row (status pending), builds the
   GDT-shaped payload (seller/buyer MST, line items, tax breakdown per Decree 123/70 + Circular 78),
   calls `provider.issue` → status `issued` with the provider code/number. The e-invoice is **not**
@@ -151,8 +155,9 @@ credit limits. Phase 2a delivers a posting-correct, AR-tracked, e-invoice-ready 
 - E-invoicing: Decree 123/2020/ND-CP + Circular 78/2021/TT-BTC + Decree 70/2025/ND-CP; GDT
   e-invoice XML standard (Quyết định 1450/QĐ-TCT).
 
-## Open questions for the user
-1. **First e-invoice provider** to shape the stub/interface after (Viettel / VNPT / MISA)? (Not
-   blocking — the stub is provider-agnostic; affects field mapping when a live provider lands.)
-2. **Invoice numbering**: per-company sequential `invoiceNo` per fiscal year (assumed, like
-   journal `entryNo`) — OK? (The statutory e-invoice `số`/`ký hiệu` is separate, assigned at issue.)
+## Resolved decisions (from user review)
+1. **E-invoice provider is selectable** — ship a provider registry + stub implementations for
+   **Viettel, VNPT, and MISA** behind one interface, with the active provider chosen by config
+   (per company). Live HTTP integration is a later phase.
+2. **Invoice numbering**: per-company sequential `invoiceNo` per fiscal year (confirmed). The
+   statutory e-invoice `số`/`ký hiệu` is assigned separately at issue by the provider stub.
