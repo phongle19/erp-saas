@@ -180,6 +180,59 @@ export class InventoryService {
   }
 
   /**
+   * Reverse a prior goods receipt by removing the ORIGINAL received quantity at
+   * the ORIGINAL line cost (NOT the current weighted-average cost). Used when a
+   * posted purchase invoice is cancelled (B5): the compensating movement restores
+   * the exact qty and value the receipt added.
+   *
+   * Inserts an 'issue'-type movement with totalCostMinor = original lineCost and
+   * balances = prev − qty / prev − lineCost.
+   *
+   * Caveat (Phase 2b, best-effort): exact value restoration assumes no intervening
+   * movement consumed below the received quantity. If later issues drew the balance
+   * down past this receipt, subtracting the original cost can over/undershoot the
+   * moving-average value (and even drive the balance negative). For Phase 2b
+   * (low-volume, cancel-soon-after-post) this is acceptable; a full restatement
+   * engine is deferred.
+   *
+   * Must be called inside an existing tenant tx so the reversal movement commits
+   * atomically with the journal reversal.
+   */
+  async applyReversal(input: ApplyReceiptInput): Promise<InventoryBalance> {
+    const tx = currentTx();
+
+    if (!tx.isAdmin && !tx.accessibleCompanies.includes(input.companyId)) {
+      throw new ForbiddenException('access to company denied');
+    }
+
+    // Serialise concurrent movements for the same material (advisory lock).
+    await this.acquireMaterialLock(input.companyId, input.materialId);
+
+    const prev = await this.latestBalance(input.companyId, input.materialId);
+    const qty = prev.qty - input.quantity;
+    const value = prev.value - input.cost;
+    const unitCostMinor = input.quantity > 0n ? input.cost / input.quantity : 0n;
+
+    await tx.db.insert(schema.inventoryMovements).values({
+      companyId: input.companyId,
+      materialId: input.materialId,
+      movementType: 'issue',
+      quantity: input.quantity,
+      unitCostMinor,
+      totalCostMinor: input.cost,
+      balanceQtyAfter: qty,
+      balanceValueAfter: value,
+      sourceDocType: input.sourceDocType,
+      sourceDocId: input.sourceDocId,
+      journalEntryId: input.journalEntryId,
+      movementDate: input.movementDate,
+      periodId: input.periodId,
+    });
+
+    return { balanceQty: qty, balanceValue: value };
+  }
+
+  /**
    * Apply a goods issue: remove `quantity` units at the current weighted-average cost.
    *
    * Throws UnprocessableEntityException (422) on over-issue.
