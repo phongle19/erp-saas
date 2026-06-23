@@ -97,7 +97,7 @@ Everything listed here is shipped, tested, and green in CI.
   (2 lines: 10M@10% + 5M@8% VAT = total 16,400,000); 1 partial receipt (6,000,000);
   1 issued e-invoice stub. KH001 AR balance = 10,400,000 VND.
 - **Read-only web UI:** customers list/detail, sales invoices list/detail with VAT breakdown,
-  AR aging table. Source: `apps/web/src/app/[locale]/sales/`.
+  AR aging table. Source: `apps/web/src/app/[locale]/companies/[id]/sales/`.
 - **RLS extended to sales/AR/einvoice:** `business_partners`, `sales_invoices`,
   `sales_invoice_lines`, `customer_receipts`, `einvoices` all covered by FORCE RLS; e2e
   access-isolation tests prove cross-company isolation.
