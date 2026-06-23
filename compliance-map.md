@@ -13,8 +13,8 @@ citing the source regulation at its call site. Ambiguities go to `docs/open-ques
 
 | Rule / Feature | Source Regulation | Where Implemented | Status |
 |---|---|---|---|
-| VAT standard rate 10% | Luật Thuế GTGT (Law on VAT), consolidated | `packages/db/src/seed.ts` (`tax_rules` row `vat_rate`), `packages/domain/src/rules.ts` (`findEffectiveRule`) | DONE |
-| VAT reduced rate 8% through 2026-12-31 | Nghị quyết 204/2025/QH15 (Resolution 204/2025/QH15) | `packages/db/src/seed.ts` (`tax_rules` row `vat_rate_reduced`, `effective_from='2025-01-01'`, `effective_to='2027-01-01'` [exclusive]) | DONE |
+| VAT standard rate 10% | Luật Thuế GTGT số 48/2024/QH15 (Law on VAT 48/2024/QH15), Điều 8 | `packages/db/src/seed.ts` (`tax_rules` row `vat_rate`), `packages/domain/src/rules.ts` (`findEffectiveRule`); applied to sales invoice output VAT in `apps/api/src/sales/sales-invoice.service.ts` (Dr 131 / Cr 511 / Cr 3331) | DONE |
+| VAT reduced rate 8% through 2026-12-31 | Nghị quyết 204/2025/QH15 (Resolution 204/2025/QH15) | `packages/db/src/seed.ts` (`tax_rules` row `vat_rate_reduced`, `effective_from='2025-01-01'`, `effective_to='2027-01-01'` [exclusive]); effective-dating enforced at sales-invoice rate resolution in `apps/api/src/sales/sales-invoice.service.ts` (a post-2026 invoice claiming 8% → 422) | DONE |
 | Input-VAT non-cash deductibility threshold ≥ VND 5,000,000 (from 2025-07-01) | Luật Thuế GTGT số 48/2024/QH15 (Law on VAT 48/2024/QH15) | `packages/db/src/seed.ts` (`tax_rules` row `input_vat_noncash_threshold`, `effective_from='2025-07-01'`) | DONE |
 | Household business revenue tier exempt threshold VND 200,000,000 | Nghị quyết 198/2025/QH15 (Resolution 198/2025/QH15) | `packages/db/src/seed.ts` (`tax_rules` row `household_tier_threshold_exempt`) | DONE |
 | Household tier enum (lt_200m / 200m_1b / gt_1b / gt_3b) | Nghị quyết 198/2025/QH15 | `packages/db/src/schema/enums.ts` (`householdTier` pgEnum) | DONE |
