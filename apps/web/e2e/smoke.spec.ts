@@ -135,3 +135,37 @@ test("sales invoices: /vi/companies/test-id/sales/invoices renders heading and e
     page.getByText("Vui lòng tạo trước khi lập hóa đơn.")
   ).toBeVisible({ timeout: 15_000 });
 });
+
+// Purchasing routes: server-component fetches fail gracefully when API is offline
+// so the pages still render their Vietnamese headings and "no data" empty-states.
+test("purchasing inventory: /vi/companies/test-id/purchasing/inventory renders heading and no-data", async ({
+  page,
+}) => {
+  const response = await page.goto(
+    "/vi/companies/test-id/purchasing/inventory"
+  );
+  expect(response, "page.goto returned no response").not.toBeNull();
+  expect(response!.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", { name: "Tồn kho" })
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Không có dữ liệu")).toBeVisible({
+    timeout: 15_000,
+  });
+});
+
+test("purchasing ap: /vi/companies/test-id/purchasing/ap renders heading and no-data", async ({
+  page,
+}) => {
+  const response = await page.goto(
+    "/vi/companies/test-id/purchasing/ap?fiscalYear=2025&through=12"
+  );
+  expect(response, "page.goto returned no response").not.toBeNull();
+  expect(response!.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", { name: "Công nợ phải trả" })
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText("Không có dữ liệu")).toBeVisible({
+    timeout: 15_000,
+  });
+});
