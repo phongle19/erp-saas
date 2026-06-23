@@ -4,11 +4,13 @@ import { PartnersService } from './partners.service.js';
 import { PartnersController } from './partners.controller.js';
 import { SalesInvoiceService } from './sales-invoice.service.js';
 import { SalesInvoiceController } from './sales-invoice.controller.js';
+import { ReceiptsService } from './receipts.service.js';
+import { ReceiptsController } from './receipts.controller.js';
 
 @Module({
   imports: [DocumentsModule],
-  controllers: [PartnersController, SalesInvoiceController],
-  providers: [PartnersService, SalesInvoiceService],
-  exports: [PartnersService, SalesInvoiceService],
+  controllers: [PartnersController, SalesInvoiceController, ReceiptsController],
+  providers: [PartnersService, SalesInvoiceService, ReceiptsService],
+  exports: [PartnersService, SalesInvoiceService, ReceiptsService],
 })
 export class SalesModule {}
