@@ -86,6 +86,34 @@ export class PostingEngineService {
     }
     const fiscalYear = period.fiscalYear;
 
+    // 3a. Partner-company guard (defense-in-depth: document services already validate,
+    //     but the raw POST /journal-entries endpoint does not, so we close that gap here).
+    //     One query for ALL distinct partnerIds on the entry, RLS-scoped to companyId.
+    const partnerIds = [
+      ...new Set(
+        input.lines.map((l) => l.partnerId).filter((id): id is string => id !== undefined),
+      ),
+    ];
+    if (partnerIds.length > 0) {
+      const foundRows = await db
+        .select({ id: schema.businessPartners.id })
+        .from(schema.businessPartners)
+        .where(
+          and(
+            inArray(schema.businessPartners.id, partnerIds),
+            eq(schema.businessPartners.companyId, input.companyId),
+          ),
+        );
+      const foundIds = new Set(foundRows.map((r) => r.id));
+      for (const pid of partnerIds) {
+        if (!foundIds.has(pid)) {
+          throw new UnprocessableEntityException(
+            'partner does not belong to this company',
+          );
+        }
+      }
+    }
+
     // 3. Resolve account codes -> ids (RLS-scoped to the company).
     const codes = input.lines.map((l) => l.accountCode);
     const accounts = await db
