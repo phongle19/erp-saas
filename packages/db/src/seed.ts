@@ -1,6 +1,7 @@
 import { sql as drizzleSql } from 'drizzle-orm';
 import { makeSql, makeDb, schema } from './client.js';
 import { getChartOfAccounts } from '@erp/config-regimes';
+import { lineNet, vatFor } from '@erp/domain';
 
 /**
  * Demo seed. Run ONLY on a fresh database (e.g. right after `migrate` on a new install).
@@ -249,7 +250,7 @@ async function main() {
       entryNo: number;
       entryDate: string;
       description: string;
-      lines: Array<{ accountCode: string; debitMinor: bigint; creditMinor: bigint }>;
+      lines: Array<{ accountCode: string; debitMinor: bigint; creditMinor: bigint; partnerId?: string }>;
     }) => {
       // (a) Insert entry as draft
       const entryRows = await tx.insert(schema.journalEntries).values({
@@ -271,6 +272,7 @@ async function main() {
           accountId: acct(l.accountCode),
           debitMinor: l.debitMinor,
           creditMinor: l.creditMinor,
+          ...(l.partnerId !== undefined ? { partnerId: l.partnerId } : {}),
         }))
       );
 
@@ -341,6 +343,212 @@ async function main() {
         { accountCode: '111', debitMinor: 0n, creditMinor: 150_000_000n },
       ],
     });
+
+    // ── PART B: Phase 2a — Sales / AR / E-invoice demo data ──────────────────
+    // Idempotency: skip if business partners already seeded for this company
+    const existingPartners = await tx
+      .select({ id: schema.businessPartners.id })
+      .from(schema.businessPartners)
+      .where(drizzleSql`${schema.businessPartners.companyId} = ${sme.id}`)
+      .limit(1);
+
+    if (existingPartners.length === 0) {
+      // B1. Business partners (customers)
+      //     Thông tư 133/2016/TT-BTC — chi tiết công nợ phải thu theo từng khách hàng
+      const partnerRows = await tx.insert(schema.businessPartners).values([
+        {
+          companyId: sme.id,
+          code: 'KH001',
+          name: 'Công ty CP Thương mại An Phát',
+          taxCode: '0312345678',
+          partnerType: 'customer',
+        },
+        {
+          companyId: sme.id,
+          code: 'KH002',
+          name: 'Công ty TNHH Bình Minh',
+          taxCode: '0398765432',
+          partnerType: 'customer',
+        },
+      ]).returning();
+      const kh001 = partnerRows.find((p) => p.code === 'KH001')!;
+      const kh002 = partnerRows.find((p) => p.code === 'KH002')!;
+
+      // B2. Sales invoice INV-2026-001 to KH001 (Period 1/FY2026)
+      //     2 lines with mixed VAT rates per Law on VAT 48/2024/QH15 + Resolution 204/2025/QH15:
+      //       Line A: qty 1 × 10,000,000 @ 10% (vat_rate)  → net 10,000,000 / vat 1,000,000
+      //       Line B: qty 1 ×  5,000,000 @ 8%  (vat_rate_reduced) → net 5,000,000 / vat 400,000
+      //     subtotal 15,000,000 / vat_total 1,400,000 / total 16,400,000
+
+      // Use domain helpers (bigint, HALF_UP) — never float
+      const lineANet = lineNet(1n, 10_000_000n);          // 10,000,000
+      const lineAVat = vatFor(lineANet, 10n);              // 1,000,000  (10%)
+      const lineBNet = lineNet(1n, 5_000_000n);            // 5,000,000
+      const lineBVat = vatFor(lineBNet, 8n);               // 400,000    (8%)
+
+      const invoiceSubtotal = lineANet + lineBNet;         // 15,000,000
+      const invoiceVat     = lineAVat + lineBVat;          // 1,400,000
+      const invoiceTotal   = invoiceSubtotal + invoiceVat; // 16,400,000
+
+      // Insert the invoice as draft first, then post after attaching the journal entry
+      const invRows = await tx.insert(schema.salesInvoices).values({
+        companyId: sme.id,
+        partnerId: kh001.id,
+        invoiceNo: 1,
+        invoiceDate: '2026-01-20',
+        periodId: period1.id,
+        fiscalYear: 2026,
+        description: 'Hóa đơn bán hàng 01/2026 — An Phát',
+        status: 'draft',
+        subtotalMinor: invoiceSubtotal,
+        vatMinor: invoiceVat,
+        totalMinor: invoiceTotal,
+      }).returning();
+      const invoice = invRows[0]!;
+
+      // Insert invoice lines (audit trail: vatRuleType + vatRatePct stored per line)
+      await tx.insert(schema.salesInvoiceLines).values([
+        {
+          invoiceId: invoice.id,
+          companyId: sme.id,
+          lineNo: 1,
+          description: 'Hàng hóa A',
+          quantity: 1n,
+          unitPriceMinor: 10_000_000n,
+          lineNetMinor: lineANet,
+          vatRuleType: 'vat_rate',
+          vatRatePct: 10,
+          vatMinor: lineAVat,
+          revenueAccountCode: '511',
+        },
+        {
+          invoiceId: invoice.id,
+          companyId: sme.id,
+          lineNo: 2,
+          description: 'Hàng hóa B',
+          quantity: 1n,
+          unitPriceMinor: 5_000_000n,
+          lineNetMinor: lineBNet,
+          vatRuleType: 'vat_rate_reduced',
+          vatRatePct: 8,
+          vatMinor: lineBVat,
+          revenueAccountCode: '511',
+        },
+      ]);
+
+      // Post the AR journal entry: Dr 131 16,400,000 (partner KH001) / Cr 511 15,000,000 / Cr 3331 1,400,000
+      //   Source: Thông tư 133/2016/TT-BTC — hạch toán doanh thu + thuế GTGT đầu ra (TK 3331)
+      //   VAT: Law on VAT 48/2024/QH15 Art. 8.1 (10%) + Resolution 204/2025/QH15 (8% through 2026-12-31)
+      const e6Id = await postEntry({
+        entryNo: 6,
+        entryDate: '2026-01-20',
+        description: 'Bán hàng chịu thuế GTGT — An Phát (INV-2026-001)',
+        lines: [
+          { accountCode: '131', debitMinor: invoiceTotal,    creditMinor: 0n, partnerId: kh001.id },
+          { accountCode: '511', debitMinor: 0n,              creditMinor: invoiceSubtotal },
+          { accountCode: '3331', debitMinor: 0n,             creditMinor: invoiceVat },
+        ],
+      });
+
+      // Mark the invoice as posted and link the journal entry
+      await tx.execute(
+        drizzleSql`UPDATE sales_invoices SET status = 'posted', journal_entry_id = ${e6Id}, posted_at = now() WHERE id = ${invoice.id}`
+      );
+
+      // B3. Customer receipt from KH001 — partial payment 6,000,000 VND to 111
+      //     Dr 111 6,000,000 / Cr 131 6,000,000 (partner KH001)
+      //     Source: Thông tư 133/2016/TT-BTC — thu tiền khách hàng (sub-ledger 131)
+      const receiptAmount = 6_000_000n;
+      const e7Id = await postEntry({
+        entryNo: 7,
+        entryDate: '2026-01-25',
+        description: 'Thu tiền khách hàng An Phát (phần 1)',
+        lines: [
+          { accountCode: '111',  debitMinor: receiptAmount, creditMinor: 0n },
+          { accountCode: '131',  debitMinor: 0n,            creditMinor: receiptAmount, partnerId: kh001.id },
+        ],
+      });
+
+      const rcptRows = await tx.insert(schema.customerReceipts).values({
+        companyId: sme.id,
+        partnerId: kh001.id,
+        receiptNo: 1,
+        receiptDate: '2026-01-25',
+        periodId: period1.id,
+        fiscalYear: 2026,
+        amountMinor: receiptAmount,
+        settlementAccountCode: '111',
+        description: 'Thu tiền từ An Phát — thanh toán một phần HĐ 01/2026',
+        status: 'posted',
+        journalEntryId: e7Id,
+        postedAt: new Date(),
+      }).returning();
+      const receipt = rcptRows[0]!;
+
+      // B4. E-invoice stub for the sales invoice
+      //     Decree 123/2020/ND-CP + Circular 78/2021/TT-BTC + GDT XML 1450/QĐ-TCT
+      //     Provider: Viettel (stub — no live transmission in seed)
+      //     Status: 'issued' (representative row; providerCode and gdtMessageId are demo values)
+      const einvRows = await tx.insert(schema.einvoices).values({
+        companyId: sme.id,
+        salesInvoiceId: invoice.id,
+        provider: 'viettel',
+        mauSo: '1',
+        kyHieu: 'C26TAA',
+        soHoaDon: '00000001',
+        sellerMst: sme.mst,
+        buyerMst: kh001.taxCode,
+        buyerName: kh001.name,
+        currency: 'VND',
+        subtotalMinor: invoiceSubtotal,
+        vatMinor: invoiceVat,
+        totalMinor: invoiceTotal,
+        status: 'issued',
+        providerCode: 'VT-DEMO0001',
+        gdtMessageId: 'GDT-VT-DEMO0001',
+        issuedAt: new Date(),
+        payload: {
+          demo: true,
+          note: 'Stub e-invoice — Decree 123/2020/ND-CP + Circular 78/2021/TT-BTC + GDT XML 1450/QĐ-TCT',
+        },
+      }).returning();
+      const einvoice = einvRows[0]!;
+
+      // AR balance for KH001 = invoiceTotal − receiptAmount = 16,400,000 − 6,000,000 = 10,400,000
+      const arBalance = invoiceTotal - receiptAmount;
+
+      console.log(JSON.stringify({
+        phase2a: {
+          partners: {
+            KH001: { id: kh001.id, taxCode: kh001.taxCode },
+            KH002: { id: kh002.id, taxCode: kh002.taxCode },
+          },
+          salesInvoice: {
+            id: invoice.id,
+            invoiceNo: 1,
+            subtotalMinor: invoiceSubtotal.toString(),
+            vatMinor: invoiceVat.toString(),
+            totalMinor: invoiceTotal.toString(),
+            journalEntryId: e6Id,
+          },
+          customerReceipt: {
+            id: receipt.id,
+            amountMinor: receiptAmount.toString(),
+            journalEntryId: e7Id,
+          },
+          einvoice: {
+            id: einvoice.id,
+            status: einvoice.status,
+            provider: einvoice.provider,
+            soHoaDon: einvoice.soHoaDon,
+          },
+          arBalanceKH001: arBalance.toString(),
+          arCheck: arBalance === 10_400_000n ? 'PASS — KH001 AR = 10,400,000' : `FAIL — got ${arBalance}`,
+        },
+      }, null, 2));
+    } else {
+      console.log('Phase 2a sales data already seeded — skipping');
+    }
 
     // Summary output
     const entryIds = [e1Id, e2Id, e3Id, e4Id, e5Id];

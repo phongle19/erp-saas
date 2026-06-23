@@ -75,9 +75,12 @@ account **333** can likewise show a negative-liability on a net-debit (refund) b
 netting, which is deferred. It is NOT an engine arithmetic bug — prefix-sum, nature sign, `_neg`
 subtraction, and the post-closing balance-sheet identity are all correct.
 
-**Mitigation now:** the demo/tests avoid 131/331 (cash sales via 111). **To resolve later:** add an
-accounts-receivable/payable sub-ledger and split each control account into its debit and credit
-components before mapping to B01 (a Phase 2 SD/MM concern).
+**Phase 2a update (2026-06-23) — TK 131 partially resolved:** `journal_lines.partner_id` now tags
+every AR line with its customer. `ArService` aggregates per-customer debit/credit independently,
+so per-customer receivable balances are correct even when some customers are in credit (overpayment).
+The B01 aggregate-131 mapping limitation remains for the statement engine, but the AR sub-ledger
+(`GET /companies/:id/ar`) provides faithful per-counterparty representation.
+**TK 331 (AP) resolved in Phase 2b (Purchasing / MM).**
 
 ## Phase 2a known limitation — whole-unit sales quantities (logged 2026-06-23)
 

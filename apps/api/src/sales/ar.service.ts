@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, lte, ne, asc, isNull, sql } from 'drizzle-orm';
+import { eq, and, lte, ne, asc, sql } from 'drizzle-orm';
 import { schema } from '@erp/db';
 import { currentTx } from '../db/tx-context.js';
 
